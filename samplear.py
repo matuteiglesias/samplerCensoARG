@@ -7,6 +7,7 @@ import os
 import dask.dataframe as dd
 from dask.diagnostics import ProgressBar
 
+os.chdir(os.path.dirname(__file__))
 
 
 parser = argparse.ArgumentParser()
@@ -108,21 +109,8 @@ for yr in [str(s) for s in range(startyr, endyr)]:
     with ProgressBar():
         table = tabla_censo.compute()
 
-    # Adaptamos las categorias de respuestas para que queden iguales a las de la EPH
-    table['V01'] = table['V01'].map({1:1, 2:6, 3:6, 4:2, 5:3, 6:4, 7:5, 8:6})
-    table['H06'] = table['H06'].map({1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:9})
-    table['H09'] = table['H09'].map({1:1, 2:2, 3:3, 4:4, 5:4, 6:4})
-    table['H16'] = table['H16'].clip(0, 9)
-    table['H14'] = table['H14'].map({1:1, 2:4, 3:2, 4:2, 5:4, 6:3, 7:4, 8:9})
-    table['H13'] = table['H13'].map({1:1, 2:2, 4:0})
-
     # saber de que aglo es el hogar.
     table = table.merge(radio_ref[['RADIO_REF_ID','AGLOMERADO']]) 
-
-# #    Option to save table now, in case it crashes at this step.
-#     if not os.path.exists('./../data/yr_samples/'):
-#         os.makedirs('./../data/yr_samples/')
-#     table.to_csv('./../data/yr_samples/sample_censo_table_f'+str(frac)+'_'+yr+'_ARG.csv', index = False)
 
     PERSONA_sample = PERSONA.loc[PERSONA.HOGAR_REF_ID.isin(sample.HOGAR_REF_ID)]
 
