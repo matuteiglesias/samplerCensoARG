@@ -139,8 +139,8 @@ for yr in [str(s) for s in range(startyr, endyr)]:
 
     # Guardar sampleo del censo
     
-    if not os.path.exists('./../data/censo_samples/'):
-        os.makedirs('./../data/censo_samples/')
+    if not os.path.exists('./data/censo_samples/'):
+        os.makedirs('./data/censo_samples/')
         
-    table.to_csv('./../data/censo_samples/table_f'+str(frac)+'_'+yr+'_'+name+'.csv', index = False)
+    table.to_csv('./data/censo_samples/table_f'+str(frac)+'_'+yr+'_'+name+'.csv', index = False)
 
