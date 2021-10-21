@@ -7,8 +7,8 @@ import os
 import dask.dataframe as dd
 from dask.diagnostics import ProgressBar
 
-os.chdir(os.path.dirname(__file__))
 
+#os.chdir(os.path.dirname(__file__))
 
 parser = argparse.ArgumentParser()
 # parser.add_argument('-i', action='append', nargs='+')
