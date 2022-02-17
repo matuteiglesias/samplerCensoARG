@@ -52,6 +52,9 @@ for _, value in parser.parse_args()._get_kwargs():
 
 # El archivo 'proy_pop200125.csv' contiene la informacion oficial de proyecciones de poblacion por departamento publicada por INDEC
 #  ('https://www.indec.gob.ar/ftp/cuadros/poblacion/proyeccion_departamentos_10_25.pdf')
+
+os.chdir('./../../samplerCensoARG/')
+
 proy_pop = pd.read_csv('./data/info/proy_pop200125.csv', encoding = 'utf-8')
 proy_pop.head(2)
 
@@ -66,7 +69,8 @@ radio_ref['PROV'] = radio_ref['PROV'].astype(int)
 # seleccion_DPTOS y usecols nos sirven para no cargar data innecesaria.
 
 
-VIVIENDA = dd.read_csv(censo_DB_path + '/VIVIENDA.csv', sep = ';', usecols = ['VIVIENDA_REF_ID', 'RADIO_REF_ID', 'TIPVV', 'V01'])
+VIVIENDA = dd.read_csv(censo_DB_path + '/VIVIENDA.csv', sep = ';', 
+                       usecols = ['VIVIENDA_REF_ID', 'RADIO_REF_ID', 'URP', 'TIPVV', 'V01'])
 VIVIENDA = VIVIENDA.merge(radio_ref[['RADIO_REF_ID', 'DPTO', 'PROV']])
 
 if args.departamentos is not None:
@@ -74,7 +78,7 @@ if args.departamentos is not None:
     
 elif args.provincias is not None:
     VIVIENDA = VIVIENDA.loc[VIVIENDA.PROV.isin(args.provincias)]
-   
+    
 else:
     print('total_pais')
 #    VIVIENDA_ = VIVIENDA.loc[VIVIENDA.DPTO.isin(seleccion_distritos)]
@@ -122,7 +126,7 @@ for yr in [str(s) for s in range(startyr, endyr)]:
     table['P07'] = table['P07'].map({1:1, 2:2, 0:2})
     
     ## Calcula tamano del hogar
-    IX_TOT = table['HOGAR_REF_ID'].value_counts().reset_index(); IX_TOT.columns = ['HOGAR_REF_ID', 'IX_TOT_']
+    IX_TOT = table['HOGAR_REF_ID'].value_counts().reset_index(); IX_TOT.columns = ['HOGAR_REF_ID', 'IX_TOT']
     table = table.merge(IX_TOT)
 
     # Guardar sampleo del censo
@@ -130,5 +134,7 @@ for yr in [str(s) for s in range(startyr, endyr)]:
     if not os.path.exists('./data/censo_samples/'):
         os.makedirs('./data/censo_samples/')
         
-    table.to_csv('./data/censo_samples/table_f'+str(frac)+'_'+yr+'_'+name+'.csv', index = False)
+    filename = './data/censo_samples/table_f'+str(frac)+'_'+yr+'_'+name+'.csv'
+    print('saved file: ' + filename)
+    table.to_csv(filename, index = False)
 
