@@ -21,7 +21,7 @@ Clonar repositorio:
 
 O descargarlo como archivo zip. Una vez clonado el repositorio, extraiga muestras del censo corriendo el archivo `samplear.py` que quedan guardadas como archivo `csv`.
 
-`$ cd samplerCensoARG`
+`$ cd samplerCensoARG/notebooks`
 
 **Synopsis**:
 
