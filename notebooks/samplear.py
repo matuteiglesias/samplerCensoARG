@@ -123,12 +123,24 @@ if not os.path.exists('./../data/censo_samples/'):
 import dask.dataframe as dd
 from dask import delayed, compute
 
+
+
+def sample_func(frac, x, yr):
+    return x.sample(frac=frac*x[yr].mean())
+
+
 for yr in [str(s) for s in range(startyr, endyr)]:
     print(yr)
     
     grouped = HOGAR[['HOGAR_REF_ID', 'VIVIENDA_REF_ID', 'DPTO']].merge(ratios[['DPTO', yr]]).groupby('DPTO')
+
+    # # Define the meta based on the expected output. Adjust this to match your actual data structure.
+    meta = {'HOGAR_REF_ID': 'int64', 'VIVIENDA_REF_ID': 'int64', 'DPTO': 'int64', yr: 'int64'}
+
+    sample = grouped.apply(lambda x: sample_func(frac, x, yr), meta=meta).compute()
+
     # sample = grouped.apply(lambda x: x.sample(frac=frac*x[yr].mean()), meta=('x', 'f8')).compute()
-    sample = grouped.apply(lambda x: x.sample(frac=frac*x[yr].mean())).compute()
+    # sample = grouped.apply(lambda x: x.sample(frac=frac*x[yr].mean())).compute()
 
     viviendas_en_sample = sample.VIVIENDA_REF_ID.unique()
     hogares_en_sample = sample.HOGAR_REF_ID.unique()
@@ -154,8 +166,8 @@ for yr in [str(s) for s in range(startyr, endyr)]:
     df.to_csv(filename, index = False, single_file=True)
 
 
-# In[ ]:
 
+# In[ ]:
 
 
 # for yr in [str(s) for s in range(startyr, endyr)]:
