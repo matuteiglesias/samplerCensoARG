@@ -62,20 +62,16 @@ Por default, el muestreo toma el 1% de los hogares, de todos los distritos de Ar
 
  - Para tomar muestras del 5% de los hogares del pais para los años entre 2015 y 2020:
 
-`$ python samplear.py -dbp '/media/miglesia/Elements/suite/ext_CPV2010_basico_radio_pub' -f 0.005 -y 2015 2021`
-
+`$ python samplear.py -dbp '/directorio/BD/censo/ext_CPV2010_basico_radio_pub' -f 0.05 -y 2015 2021`
 
  - Para tomar muestras del 5% de los hogares de la Ciudad de Buenos Aires en el año 2020
 
-`$ python samplear.py -dbp '/media/miglesia/Elements/suite/ext_CPV2010_basico_radio_pub' -f 0.005 -p 2 -y 2020 2021`
-
+`$ python samplear.py -dbp '/directorio/BD/censo/ext_CPV2010_basico_radio_pub' -f 0.05 -p 2 -y 2020 2021`
 
  - Para tomar muestras del 5% de los hogares de los partidos de Pilar y Escobar en el año 2020
 
-`$ python samplear.py -dbp '/media/miglesia/Elements/suite/ext_CPV2010_basico_radio_pub' -f 0.005 -d 6638 6252 -y 2020 2021`
-
+`$ python samplear.py -dbp '/directorio/BD/censo/ext_CPV2010_basico_radio_pub' -f 0.05 -d 6638 6252 -y 2020 2021`
 
  - Para tomar una muestra del 1% de los hogares del pais en el corriente año, y incluir la palabra 'prueba' en el nombre de archivo:
 
-`$ python samplear.py -dbp '/media/miglesia/Elements/suite/ext_CPV2010_basico_radio_pub' -n 'prueba'`
-
+`$ python samplear.py -dbp '/directorio/BD/censo/ext_CPV2010_basico_radio_pub' -n 'prueba'`
