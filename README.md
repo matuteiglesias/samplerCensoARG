@@ -30,7 +30,7 @@ O descargarlo como archivo zip. Una vez clonado el repositorio, extraiga muestra
 
 El unico argumento obligatorio es `DATABASEPATH`, el path donde se encuentran los archivos `PERSONA.csv`, `HOGAR.csv`, `VIVIENDA.csv`. Es decir que la forma minima de usar el script es:
 
-`$ python samplear.py -dbp '/path/ext_CPV2010_basico_radio_pub'`
+`$ python samplear.py -dbp '/directorio/BD/censo/ext_CPV2010_basico_radio_pub'`
 
 Por default, el muestreo toma el 1% de los hogares, de todos los distritos de Argentina, con poblacion proyectada al año corriente. 
 
