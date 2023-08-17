@@ -129,42 +129,55 @@ def sample_func(frac, x, yr):
     return x.sample(frac=frac*x[yr].mean())
 
 
+import time
+
+# Function to print the current timestamp and elapsed time
+def log_message(message, start_time=None):
+    current_time = time.time()
+    readable_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(current_time))
+    elapsed_time = f'Elapsed time: {current_time - start_time:.2f} seconds' if start_time else ''
+    print(f"[{readable_time}] {message} {elapsed_time}")
+
+log_message("Script started.")
+
 for yr in [str(s) for s in range(startyr, endyr)]:
-    print(yr)
+    log_message(f"Processing year: {yr}")
     
+    start_group = time.time()
     grouped = HOGAR[['HOGAR_REF_ID', 'VIVIENDA_REF_ID', 'DPTO']].merge(ratios[['DPTO', yr]]).groupby('DPTO')
+    log_message("Grouping completed.", start_group)
 
-    # # Define the meta based on the expected output. Adjust this to match your actual data structure.
+    start_sample = time.time()
     meta = {'HOGAR_REF_ID': 'int64', 'VIVIENDA_REF_ID': 'int64', 'DPTO': 'int64', yr: 'int64'}
-
     sample = grouped.apply(lambda x: sample_func(frac, x, yr), meta=meta).compute()
+    log_message("Sampling completed.", start_sample)
 
-    # sample = grouped.apply(lambda x: x.sample(frac=frac*x[yr].mean()), meta=('x', 'f8')).compute()
-    # sample = grouped.apply(lambda x: x.sample(frac=frac*x[yr].mean())).compute()
-
+    start_sample_processing = time.time()
     viviendas_en_sample = sample.VIVIENDA_REF_ID.unique()
     hogares_en_sample = sample.HOGAR_REF_ID.unique()
 
-    # Use persist to keep the intermediate dataframe in memory
     VIVIENDA_sample = VIVIENDA.loc[VIVIENDA.VIVIENDA_REF_ID.isin(viviendas_en_sample)].persist()
     HOGAR_sample = HOGAR.loc[HOGAR.HOGAR_REF_ID.isin(hogares_en_sample)].persist()
     PERSONA_sample = PERSONA.loc[PERSONA.HOGAR_REF_ID.isin(hogares_en_sample)].persist()
+    log_message("Sample processing completed.", start_sample_processing)
 
-    # Use delayed function to schedule computation
+    start_merge = time.time()
     merge1 = delayed(VIVIENDA_sample.merge)(HOGAR_sample, on = ['VIVIENDA_REF_ID'] + geo_vars)
     merge2 = delayed(merge1.merge)(PERSONA_sample, on = ['HOGAR_REF_ID'] + geo_vars)
-
-    # persist the dataframe in memory
     merge2 = merge2.persist()
+    log_message("Merging completed.", start_merge)
 
-    # compute the final dataframe
+    start_compute = time.time()
     with ProgressBar():
         df = merge2.compute(num_workers=4)
+    log_message("Compute completed.", start_compute)
 
-    # Save the sample data
+    start_save = time.time()
     filename = f'./../data/censo_samples/table_f{frac}_{yr}_{name}.csv'
     df.to_csv(filename, index = False, single_file=True)
+    log_message(f"Data saved to {filename}.", start_save)
 
+log_message("Script completed.")
 
 
 # In[ ]:
