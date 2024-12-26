@@ -1,0 +1,65 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_OUTPUT_EXCMD	mixed	/number, pattern, mixed, or combineV2/
+!_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
+!_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
+!_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
+!_TAG_PROC_CWD	/home/matias/repos/samplerCensoARG/	//
+!_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
+!_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
+!_TAG_PROGRAM_URL	https://ctags.io/	/official site/
+!_TAG_PROGRAM_VERSION	5.9.0	//
+Ejemplos	README.md	/^### Ejemplos$/;"	S	section:Sampleador de hogares censados en 2010""Modo de uso:
+HOGAR	notebooks/samplear.py	/^HOGAR = HOGAR.merge(VIVIENDA[['VIVIENDA_REF_ID', 'RADIO_REF_ID']], on='VIVIENDA_REF_ID')$/;"	v
+HOGAR	notebooks/samplear.py	/^HOGAR = HOGAR.merge(info, on = 'RADIO_REF_ID')$/;"	v
+HOGAR	notebooks/samplear.py	/^HOGAR = dd.read_csv(censo_DB_path + '\/HOGAR.csv', sep = ';', usecols = ['HOGAR_REF_ID', 'VIVIEN/;"	v
+HOGAR	notebooks/samplear.py	/^HOGAR = filter_dataframe(HOGAR, args)$/;"	v
+HOGAR_sample	notebooks/samplear.py	/^    HOGAR_sample = HOGAR.loc[HOGAR.HOGAR_REF_ID.isin(hogares_en_sample)].persist()$/;"	v
+Modo de uso:	README.md	/^## Modo de uso:$/;"	s	chapter:Sampleador de hogares censados en 2010
+PERSONA	notebooks/samplear.py	/^PERSONA = PERSONA.merge(HOGAR[['HOGAR_REF_ID', 'RADIO_REF_ID']], on = 'HOGAR_REF_ID')$/;"	v
+PERSONA	notebooks/samplear.py	/^PERSONA = PERSONA.merge(info, on = 'RADIO_REF_ID')$/;"	v
+PERSONA	notebooks/samplear.py	/^PERSONA = dd.read_csv(censo_DB_path + '\/PERSONA.csv', sep = ';', usecols = ['PERSONA_REF_ID', '/;"	v
+PERSONA	notebooks/samplear.py	/^PERSONA = filter_dataframe(PERSONA, args)$/;"	v
+PERSONA_sample	notebooks/samplear.py	/^    PERSONA_sample = PERSONA.loc[PERSONA.HOGAR_REF_ID.isin(hogares_en_sample)].persist()$/;"	v
+Sampleador de hogares censados en 2010	README.md	/^# Sampleador de hogares censados en 2010$/;"	c
+VIVIENDA	notebooks/samplear.py	/^VIVIENDA = VIVIENDA.merge(info, on = 'RADIO_REF_ID')$/;"	v
+VIVIENDA	notebooks/samplear.py	/^VIVIENDA = dd.read_csv(censo_DB_path + '\/VIVIENDA.csv', sep = ';',$/;"	v
+VIVIENDA	notebooks/samplear.py	/^VIVIENDA = filter_dataframe(VIVIENDA, args)$/;"	v
+VIVIENDA_sample	notebooks/samplear.py	/^    VIVIENDA_sample = VIVIENDA.loc[VIVIENDA.VIVIENDA_REF_ID.isin(viviendas_en_sample)].persist()$/;"	v
+args	notebooks/samplear.py	/^args = parser.parse_args()$/;"	v
+censo_DB_path	notebooks/samplear.py	/^censo_DB_path = args.databasepath$/;"	v
+dd	notebooks/samplear.py	/^import dask.dataframe as dd # Importing the dask.dataframe module for parallel computing on larg/;"	I	nameref:module:dask.dataframe
+dd	notebooks/samplear.py	/^import dask.dataframe as dd$/;"	I	nameref:module:dask.dataframe
+df	notebooks/samplear.py	/^        df = merge2.compute(num_workers=4)$/;"	v
+distritos	notebooks/samplear.py	/^distritos = parser.add_mutually_exclusive_group()$/;"	v
+endyr	notebooks/samplear.py	/^startyr, endyr = args.years$/;"	v
+filename	notebooks/samplear.py	/^    filename = f'.\/..\/data\/censo_samples\/table_f{frac}_{yr}_{name}.csv'$/;"	v
+filter_dataframe	notebooks/samplear.py	/^def filter_dataframe(df, args):$/;"	f
+frac	notebooks/samplear.py	/^frac = args.frac$/;"	v
+geo_vars	notebooks/samplear.py	/^geo_vars = ['RADIO_REF_ID', 'DPTO', 'PROV', 'AGLOMERADO']$/;"	v
+grouped	notebooks/samplear.py	/^    grouped = HOGAR[['HOGAR_REF_ID', 'VIVIENDA_REF_ID', 'DPTO']].merge(ratios[['DPTO', yr]]).gro/;"	v
+hogares_en_sample	notebooks/samplear.py	/^    hogares_en_sample = sample.HOGAR_REF_ID.unique()$/;"	v
+info	notebooks/samplear.py	/^info = radio_ref[geo_vars]$/;"	v
+log_message	notebooks/samplear.py	/^def log_message(message, start_time=None):$/;"	f
+merge1	notebooks/samplear.py	/^    merge1 = delayed(VIVIENDA_sample.merge)(HOGAR_sample, on = ['VIVIENDA_REF_ID'] + geo_vars)$/;"	v
+merge2	notebooks/samplear.py	/^    merge2 = delayed(merge1.merge)(PERSONA_sample, on = ['HOGAR_REF_ID'] + geo_vars)$/;"	v
+merge2	notebooks/samplear.py	/^    merge2 = merge2.persist()$/;"	v
+meta	notebooks/samplear.py	/^    meta = {'HOGAR_REF_ID': 'int64', 'VIVIENDA_REF_ID': 'int64', 'DPTO': 'int64', yr: 'int64'}$/;"	v
+name	notebooks/samplear.py	/^name = args.nombre$/;"	v
+np	notebooks/samplear.py	/^import numpy as np # Importing the numpy module for numerical computations$/;"	I	nameref:module:numpy
+parser	notebooks/samplear.py	/^parser = argparse.ArgumentParser()$/;"	v
+pd	notebooks/samplear.py	/^import pandas as pd # Importing the pandas module for data manipulation and analysis$/;"	I	nameref:module:pandas
+proy_pop	notebooks/samplear.py	/^proy_pop = pd.read_csv('.\/..\/data\/info\/proy_pop200125.csv', encoding = 'utf-8')$/;"	v
+radio_ref	notebooks/samplear.py	/^radio_ref = pd.read_csv('.\/..\/data\/info\/radio_ref.csv').astype({'DPTO':int, 'PROV':int})$/;"	v
+ratios	notebooks/samplear.py	/^ratios = proy_pop.set_index(['DPTO', 'NOMDPTO']).div(proy_pop['2010'].values, 0).reset_index()$/;"	v
+sample	notebooks/samplear.py	/^    sample = grouped.apply(lambda x: sample_func(frac, x, yr), meta=meta).compute()$/;"	v
+sample_func	notebooks/samplear.py	/^def sample_func(frac, x, yr):$/;"	f
+start_compute	notebooks/samplear.py	/^    start_compute = time.time()$/;"	v
+start_group	notebooks/samplear.py	/^    start_group = time.time()$/;"	v
+start_merge	notebooks/samplear.py	/^    start_merge = time.time()$/;"	v
+start_sample	notebooks/samplear.py	/^    start_sample = time.time()$/;"	v
+start_sample_processing	notebooks/samplear.py	/^    start_sample_processing = time.time()$/;"	v
+start_save	notebooks/samplear.py	/^    start_save = time.time()$/;"	v
+startyr	notebooks/samplear.py	/^startyr, endyr = args.years$/;"	v
+total_pais	notebooks/samplear.py	/^    total_pais = True$/;"	v
+viviendas_en_sample	notebooks/samplear.py	/^    viviendas_en_sample = sample.VIVIENDA_REF_ID.unique()$/;"	v
