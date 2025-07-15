@@ -59,7 +59,7 @@ from dask.diagnostics import ProgressBar # Importing the ProgressBar class from 
 
 # El archivo 'proy_pop200125.csv' contiene la informacion oficial de proyecciones de poblacion por departamento publicada por INDEC
 #  ('https://www.indec.gob.ar/ftp/cuadros/poblacion/proyeccion_departamentos_10_25.pdf')
-proy_pop = pd.read_csv('./../data/info/proy_pop200125.csv', encoding = 'utf-8')
+proy_pop = pd.read_csv('./../data/info/proy_pop20012225.csv', encoding = 'utf-8')
 
 # Proyeccion de poblacion por departamento
 ratios = proy_pop.set_index(['DPTO', 'NOMDPTO']).div(proy_pop['2010'].values, 0).reset_index()
@@ -125,8 +125,34 @@ from dask import delayed, compute
 
 
 
+# def sample_func(frac, x, yr):
+#     print('debug:', 'frac', frac, 'x.shape', x.shape, 'yr', yr)
+#     return x.sample(frac=frac*x[yr].mean())
+
 def sample_func(frac, x, yr):
-    return x.sample(frac=frac*x[yr].mean())
+    # print('debug:', 'frac', frac, 'x.shape', x.shape, 'yr', yr)
+
+    # Convert column if needed
+    if yr not in x.columns:
+        try:
+            yr_int = int(yr)
+            if yr_int in x.columns:
+                x[yr] = x[yr_int]
+        except Exception as e:
+            print(f"[warn] Cannot resolve column {yr} in x.columns={x.columns}")
+            return x.head(0)
+
+    # Defensive guard: check for valid mean
+    m = x[yr].mean()
+    if pd.isna(m) or m <= 0:
+        print(f"[warn] mean for {yr} is invalid: {m} → skipping sample")
+        return x.head(0)
+
+    try:
+        return x.sample(frac=frac * m)
+    except Exception as e:
+        print(f"[error] Sampling failed with frac={frac * m}, shape={x.shape}, error={e}")
+        return x.head(0)
 
 
 import time
@@ -149,7 +175,9 @@ for yr in [str(s) for s in range(startyr, endyr)]:
 
     start_sample = time.time()
     meta = {'HOGAR_REF_ID': 'int64', 'VIVIENDA_REF_ID': 'int64', 'DPTO': 'int64', yr: 'int64'}
-    sample = grouped.apply(lambda x: sample_func(frac, x, yr), meta=meta).compute()
+    sample = grouped.apply(lambda x: sample_func(frac, x, yr), meta=meta,
+        include_groups=False  # <- this is the key addition
+        ).compute()
     log_message("Sampling completed.", start_sample)
 
     start_sample_processing = time.time()
