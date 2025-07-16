@@ -175,9 +175,7 @@ for yr in [str(s) for s in range(startyr, endyr)]:
 
     start_sample = time.time()
     meta = {'HOGAR_REF_ID': 'int64', 'VIVIENDA_REF_ID': 'int64', 'DPTO': 'int64', yr: 'int64'}
-    sample = grouped.apply(lambda x: sample_func(frac, x, yr), meta=meta,
-        include_groups=False  # <- this is the key addition
-        ).compute()
+    sample = grouped.apply(lambda x: sample_func(frac, x, yr), meta=meta).compute()
     log_message("Sampling completed.", start_sample)
 
     start_sample_processing = time.time()
