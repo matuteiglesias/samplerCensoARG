@@ -1,1 +1,26 @@
+cat >> .gitignore <<'EOF'
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+.mypy_cache/
+.ruff_cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+
+# Local data & outputs
 data/censo_samples/
+data/**/*.csv
+data/**/*.csv.gz
+data/**/*.parquet
+*.parquet
+*.csv
+CHECKSUMS.sha256
+MANIFEST.json
+EOF
