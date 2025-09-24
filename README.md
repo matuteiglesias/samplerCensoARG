@@ -1,77 +1,121 @@
-# Sampleador de hogares censados en 2010
+# Census Sampler (Argentina 2010)
 
-El codigo en este repositorio toma una muestra aleatoria de hogares que fueron censados en el Censo Nacional de Hogares y Viviendas de 2010. 
+Este repositorio proporciona una herramienta de línea de comandos para generar muestras aleatorias reproducibles de hogares del **Censo de Población y Vivienda de Argentina 2010**.
 
-Para usarlo, Ud. necesita contar con los archivos de la base de Datos del Censo 2010.  
+El muestreador lee las tablas de microdatos (`PERSONA.csv`, `HOGAR.csv`, `VIVIENDA.csv`, etc.), aplica ratios de proyección y genera los conjuntos de datos muestreados en formato CSV (predeterminado) o Parquet.
 
-   - La base de Datos en formato REDATAM disponible en el repositorio no oficial de datos abierto (DatAR)
+---
 
-http://datar.info/dataset/censo-nacional-de-poblacion-hogares-y-viviendas-2010-cd-redatam
+This repository provides a command-line tool to generate reproducible random samples of households from the **2010 Argentina Population and Housing Census**.
 
-   - Un convertidor de REDATAM (funciona en Windows) disponible en:
-    
-https://www.aacademica.org/conversor.redatam
+The sampler reads the microdata tables (`PERSONA.csv`, `HOGAR.csv`, `VIVIENDA.csv`, etc.), applies projection ratios, and outputs sampled datasets in CSV (default) or Parquet.
 
+---
 
-## Modo de uso:
+## Data requirements
 
-Clonar repositorio:
+You must obtain the census microdata files beforehand. Two common sources:
 
-`$ git clone https://github.com/matuteiglesias/samplerCensoARG.git`
+* INDEC 2010 Census REDATAM export (see unofficial mirrors such as [DatAR](http://datar.info/dataset/censo-nacional-de-poblacion-hogares-y-viviendas-2010-cd-redatam))
+* REDATAM-to-CSV converter for Windows: [aacademica.org/conversor.redatam](https://www.aacademica.org/conversor.redatam)
 
-O descargarlo como archivo zip. Una vez clonado el repositorio, extraiga muestras del censo corriendo el archivo `samplear.py` que quedan guardadas como archivo `csv`.
+Place the extracted files (e.g. `PERSONA.csv`, `HOGAR.csv`, `VIVIENDA.csv`) in a local directory, e.g. `/path/to/ext_CPV2010_basico_radio_pub`.
 
-`$ cd samplerCensoARG/notebooks`
+---
 
-**Synopsis**:
+## Installation
 
-`samplear.py [-h] -dbp DATABASEPATH [-f FRAC [FRAC ...]] [-y YEARS [YEARS ...]] [-n NOMBRE] [-d DEPARTAMENTOS [DEPARTAMENTOS ...] |
-                   -p PROVINCIAS [PROVINCIAS ...]]`
+Clone this repository and install dependencies:
 
-El unico argumento obligatorio es `DATABASEPATH`, el path donde se encuentran los archivos `PERSONA.csv`, `HOGAR.csv`, `VIVIENDA.csv`. Es decir que la forma minima de usar el script es:
+```bash
+git clone https://github.com/matuteiglesias/samplerCensoARG.git
+cd samplerCensoARG
+pip install -r requirements.txt
+```
 
-`$ python samplear.py -dbp '/directorio/BD/censo/ext_CPV2010_basico_radio_pub'`
+---
 
-Por default, el muestreo toma el 1% de los hogares, de todos los distritos de Argentina, con poblacion proyectada al año corriente. 
+## Usage
 
-**Descripcion** de las opciones para cambiar esta configuracion (en orden alfabetico):
+Run via the CLI module:
 
-       -dbp, --databasepath
-              el path a donde se encuentra la informacion del censo en nuestro sistema.
+```bash
+python -m censo_sampler.cli -dbp /path/to/ext_CPV2010_basico_radio_pub [options]
+```
 
-       -d, --departamentos
-              opcion para samplear hogares de ciertos departamentos (partidos, comunas). Los codigos se pueden consultar en `./data/info/dptos.csv`
+### Options
 
-       -f, --frac
-              fraccion de hogares muestreados. El valor default es 0.01, es decir, el 1%.
+* `-dbp, --databasepath PATH`
+  Path to the directory containing the census CSVs. **Required**.
 
-       -p, --provincias
-              opcion para samplear hogares de ciertos departamentos (partidos, comunas). Los codigos se pueden consultar en `./data/info/dptos.csv`
+* `-f, --frac FLOAT`
+  Fraction of households to sample. Default = `0.01` (1%).
 
-       -n, --nombre
-              string usado para nombrar el archivo resultante. Por default este archivo viene nombrado por el año y la fraccion de muestreo. El parametro nombre entonces puede servir para distinguir el area geografica muestreada.
+* `-y, --years START END`
+  Year interval (half-open: includes START, excludes END). Example: `2015 2021`.
 
-       -y, --years
-              opcion para elegir los años que se desea muestrear. Se muestrean todos los años entre el par de años indicado.
+* `-n, --nombre STR`
+  Tag to include in output filename (e.g. geographic area or experiment name).
 
-### Ejemplos
+* `-d, --departamentos ID [ID ...]`
+  Restrict sampling to given department codes. Codes are listed in `./data/info/dptos.csv`.
 
- - Para tomar una muestra del 5% de los hogares del pais en el corriente año:
+* `-p, --provincias ID [ID ...]`
+  Restrict sampling to given province codes. Codes are listed in `./data/info/provs.csv`.
 
-`$ python samplear.py -dbp '/path/ext_CPV2010_basico_radio_pub' -f 0.05`
+* `--out-dir PATH`
+  Output directory. Defaults to `./data/censo_samples`.
 
- - Para tomar muestras del 5% de los hogares del pais para los años entre 2015 y 2020:
+---
 
-`$ python samplear.py -dbp '/directorio/BD/censo/ext_CPV2010_basico_radio_pub' -f 0.05 -y 2015 2021`
+## Examples
 
- - Para tomar muestras del 5% de los hogares de la Ciudad de Buenos Aires en el año 2020
+Sample 5% of households nationwide (current year):
 
-`$ python samplear.py -dbp '/directorio/BD/censo/ext_CPV2010_basico_radio_pub' -f 0.05 -p 2 -y 2020 2021`
+```bash
+python -m censo_sampler.cli -dbp /path/ext_CPV2010_basico_radio_pub -f 0.05
+```
 
- - Para tomar muestras del 5% de los hogares de los partidos de Pilar y Escobar en el año 2020
+Sample 5% of households between 2015 and 2020:
 
-`$ python samplear.py -dbp '/directorio/BD/censo/ext_CPV2010_basico_radio_pub' -f 0.05 -d 6638 6252 -y 2020 2021`
+```bash
+python -m censo_sampler.cli -dbp /path/ext_CPV2010_basico_radio_pub -f 0.05 -y 2015 2021
+```
 
- - Para tomar una muestra del 1% de los hogares del pais en el corriente año, y incluir la palabra 'prueba' en el nombre de archivo:
+Sample 5% of households in Buenos Aires City (province code 2) for year 2020:
 
-`$ python samplear.py -dbp '/directorio/BD/censo/ext_CPV2010_basico_radio_pub' -n 'prueba'`
+```bash
+python -m censo_sampler.cli -dbp /path/ext_CPV2010_basico_radio_pub -f 0.05 -p 2 -y 2020 2021
+```
+
+Sample 5% of households in Pilar and Escobar (dept codes 6638, 6252) for year 2020:
+
+```bash
+python -m censo_sampler.cli -dbp /path/ext_CPV2010_basico_radio_pub -f 0.05 -d 6638 6252 -y 2020 2021
+```
+
+Sample 1% of households nationwide and tag output with “prueba”:
+
+```bash
+python -m censo_sampler.cli -dbp /path/ext_CPV2010_basico_radio_pub -n prueba
+```
+
+---
+
+## Output
+
+* Files are written to the output directory (`--out-dir`), default `./data/censo_samples`.
+* Filenames follow:
+
+  ```
+  table_f{frac}_{year}_{nombre}.csv
+  ```
+* Parquet output will be added in future versions (CSV is always available).
+
+---
+
+## Attribution
+
+This software uses data originally produced by **INDEC (Instituto Nacional de Estadística y Censos, Argentina)**, Census 2010.
+The publisher of this repository is not affiliated with INDEC.
+
