@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "censo-sampler"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+  "pandas>=2.0",
+  "dask[dataframe]>=2023.8",
+  "distributed>=2023.8",
+  "pyarrow>=12",
+]
+
+[project.scripts]
+censo-sampler = "censo_sampler.cli:main"
+
+[tool.setuptools]
+packages = ["censo_sampler"]
+
