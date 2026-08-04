@@ -1,0 +1,5 @@
+RADIO_REF_ID,radio_2010_id,department_2010_id,region_id,frame_selection_multiplier,projection_factor
+r001,020010101,02001,gran_buenos_aires,20,0.8
+r002,500070201,50007,cuyo,1,1.0
+r003,900840301,90084,noroeste,20,1.4
+r004,940080101,94008,patagonia,1,1.1

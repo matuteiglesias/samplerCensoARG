@@ -1,4 +1,3 @@
-cat >> .gitignore <<'EOF'
 # Python
 __pycache__/
 *.py[cod]
@@ -8,19 +7,18 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# Notebooks
+# Notebooks and OS
 .ipynb_checkpoints/
-
-# OS
 .DS_Store
 
-# Local data & outputs
+# Census inputs and release outputs (fixture CSVs are explicitly excepted)
 data/censo_samples/
-data/**/*.csv
-data/**/*.csv.gz
-data/**/*.parquet
+local-releases/
+handoff/
 *.parquet
 *.csv
 CHECKSUMS.sha256
 MANIFEST.json
-EOF
+fixtures/**/*.csv
+!fixtures/cpv2010_valid/*.csv
+!fixtures/cpv2010_invalid/*.csv

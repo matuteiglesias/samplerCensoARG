@@ -5,25 +5,32 @@
 
 PROJECT := $(notdir $(CURDIR))
 
-.PHONY: help smoke run run_all
+.PHONY: help check test sample-release-fixture sample-release-check smoke
+
+FIXTURE_RELEASE_ROOT ?= /tmp/samplerCensoARG-fixture-release
+FIXTURE_SOURCE := fixtures/cpv2010_valid
 
 help:
 	@echo "Project: $(PROJECT)"
 	@echo ""
 	@echo "Targets:"
-	@echo "  make smoke    - cheap, offline, bounded checks (placeholder by default)"
-	@echo "  make run_all  - full run pipeline (placeholder by default)"
-	@echo "  make run      - alias for run_all"
+	@echo "  make check                  - offline tests and fixture release validation"
+	@echo "  make test                   - unit tests"
+	@echo "  make sample-release-fixture - build deterministic synthetic release"
+	@echo "  make sample-release-check RELEASE_DIR=..."
 
-smoke:
-	@echo "[SMOKE][$(PROJECT)] not implemented"
-	@echo "Define a minimal, offline, fixture-driven smoke check."
-	@exit 2
+test:
+	python -m unittest discover -v
 
-run_all:
-	@echo "[RUN_ALL][$(PROJECT)] not implemented"
-	@echo "Define the full run (may require network, secrets, longer compute)."
-	@exit 2
+sample-release-fixture:
+	rm -rf "$(FIXTURE_RELEASE_ROOT)"
+	python -m censo_sampler.cli release --databasepath "$(FIXTURE_SOURCE)" --geography "$(FIXTURE_SOURCE)/GEOGRAPHY.csv" --fraction 0.1 --seed 20260804 --analysis-period 2024-Q1 --name FIXTURE --weight-policy legacy_department_projection_candidate --output-root "$(FIXTURE_RELEASE_ROOT)" --max-households 20
 
-run: run_all
+sample-release-check:
+	test -n "$(RELEASE_DIR)"
+	python -m censo_sampler.cli check-release "$(RELEASE_DIR)"
 
+check: test sample-release-fixture
+	$(MAKE) sample-release-check RELEASE_DIR="$$(find "$(FIXTURE_RELEASE_ROOT)" -mindepth 1 -maxdepth 1 -type d | head -1)"
+
+smoke: check

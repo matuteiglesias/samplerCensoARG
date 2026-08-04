@@ -112,10 +112,49 @@ python -m censo_sampler.cli -dbp /path/ext_CPV2010_basico_radio_pub -n prueba
   ```
 * Parquet output will be added in future versions (CSV is always available).
 
+## Immutable sample release v1
+
+The supported poverty-consumer boundary is `research.census-sample/v1`. It uses
+household-level SHA-256 Bernoulli selection, an explicit seed, stable namespaced
+IDs, canonical `persons.csv` and `households.csv`, QA, a manifest, and SHA-256
+checksums. Selection is independent of input order and keeps every person in a
+selected household. Projection factors never alter the hidden sampling fraction:
+the manifest reports frame inclusion probability, inverse-probability weight,
+and the optional legacy projection policy separately.
+
+```bash
+python -m censo_sampler.cli release \
+  --databasepath "$CENSUS_DB_PATH" \
+  --geography /secure/local/GEOGRAPHY.csv \
+  --fraction 0.01 --seed 20260804 --analysis-period 2024-Q1 \
+  --name ARG --weight-policy legacy_department_projection_candidate \
+  --output-root /local/releases/census \
+  --handoff-dir /local/handoffs/indice-pobreza-UBA
+```
+
+The geography crosswalk must contain `RADIO_REF_ID`, zero-preserving
+`radio_2010_id` and `department_2010_id`, and one of the six basket `region_id`
+values. A full-compatible release fails rather than silently assigning unresolved
+Buenos Aires departments. Use `--departments` for an explicitly bounded,
+unambiguous subset and `--max-households` to enforce a local processing bound.
+The handoff is a physical copy, never a sibling symlink.
+
+Offline verification:
+
+```bash
+make check
+make test
+make sample-release-fixture
+make sample-release-check RELEASE_DIR=/path/to/release
+```
+
+Raw CPV files and generated releases are ignored by Git. The operator remains
+responsible for lawful access, privacy, and data rights; projected CPV-2010
+weights are not an official current population estimate.
+
 ---
 
 ## Attribution
 
 This software uses data originally produced by **INDEC (Instituto Nacional de Estadística y Censos, Argentina)**, Census 2010.
 The publisher of this repository is not affiliated with INDEC.
-

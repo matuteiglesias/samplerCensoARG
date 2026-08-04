@@ -6,13 +6,46 @@ We only orchestrate calls into io/sample/export modules.
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
-from . import io as io_mod
-from . import sample as sample_mod
-from . import export as export_mod
-from . import validate as validate_mod
+from .release import ReleaseError, build_release, check_release
+
+
+def _release_parser():
+    parser = argparse.ArgumentParser(prog="censo-sampler release")
+    parser.add_argument("--databasepath", required=True)
+    parser.add_argument("--fraction", type=float, required=True)
+    parser.add_argument("--seed", type=int, required=True)
+    parser.add_argument("--analysis-period", required=True)
+    parser.add_argument("--name", default="ARG")
+    parser.add_argument("--weight-policy", default="cpv2010_frame_inverse_probability",
+                        choices=["cpv2010_frame_inverse_probability", "legacy_department_projection_candidate"])
+    parser.add_argument("--output-root", required=True)
+    parser.add_argument("--departments", nargs="*")
+    parser.add_argument("--geography")
+    parser.add_argument("--handoff-dir")
+    parser.add_argument("--max-households", type=int, default=100000)
+    return parser
+
+
+def _release_main(argv):
+    args = _release_parser().parse_args(argv)
+    path = build_release(args.databasepath, args.output_root, fraction=args.fraction, seed=args.seed,
+                         analysis_period=args.analysis_period, name=args.name, weight_policy=args.weight_policy,
+                         departments=args.departments, geography_path=args.geography,
+                         handoff_dir=args.handoff_dir, max_households=args.max_households)
+    print(path)
+    return 0
+
+
+def _check_main(argv):
+    parser = argparse.ArgumentParser(prog="censo-sampler check-release")
+    parser.add_argument("release_dir")
+    manifest = check_release(parser.parse_args(argv).release_dir)
+    print(json.dumps({"release_id": manifest["release_id"], "status": "valid"}, sort_keys=True))
+    return 0
 
 
 def parse_args(argv=None):
@@ -63,6 +96,21 @@ def print_run_banner(args):
 
 
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    try:
+        if argv and argv[0] == "release":
+            return _release_main(argv[1:])
+        if argv and argv[0] == "check-release":
+            return _check_main(argv[1:])
+    except ReleaseError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    # The historical sampler has optional pandas/Dask dependencies. Keep these
+    # imports out of the stdlib-only release/check command path.
+    from . import export as export_mod
+    from . import io as io_mod
+    from . import sample as sample_mod
+    from . import validate as validate_mod
     args = parse_args(argv)
 
     # Pretty header instead of weak echo
