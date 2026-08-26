@@ -1,0 +1,53 @@
+# This file declares the repository boundary and its place in the GitHub estate.
+schema_version: 1
+id: research.census.sample
+repository:
+  id: repo.sampler-censo-arg
+  github: matuteiglesias/samplerCensoARG
+domain: research
+system: research.census
+role: census-sample-producer
+lifecycle: active-bounded
+authority:
+  status: current
+  owns:
+  - deterministic Census sample selection and stable sample identity
+  - person-to-household membership in sampled releases
+  - sampling probability, sample weights, QA, manifests and checksums
+  - packaging and verification of research.census-sample/v1
+  does_not_own:
+  - official Census publication or Census geography authority
+  - poverty methodology or classification
+  - EPH preprocessing, model training or model selection
+  - income-model scientific methodology
+  - Census microdata redistribution rights
+interfaces:
+  consumes:
+  - local-authorized CPV-2010 microdata tables
+  - explicit Census geography identity/crosswalk input
+  produces:
+  - artifact:research.census-sample@1
+upstream:
+- repo.argentina-geography
+downstream:
+- repo.indice-pobreza-uba
+canonical_commands:
+- name: produce-sample-release
+  command: python -m censo_sampler.cli release <options>
+  output: research.census-sample/v1
+- name: verify-sample-release
+  command: python -m censo_sampler.cli check-release <release-dir>
+generated_paths:
+- data/censo_samples/
+- releases/
+- handoffs/
+verification:
+  status: fixture-implemented
+  last_verified: '2026-08-04'
+  command: make check && make test && make sample-release-fixture
+  unknowns:
+  - exact authorized local CPV-2010 source identity for each real release
+  - final geography binding used by each real release
+maintenance:
+  cadence: quarterly
+  next_review: '2026-11-01'
