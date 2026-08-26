@@ -1,145 +1,72 @@
-# Census Sampler (Argentina 2010)
+# Muestreador del Censo 2010 — Argentina
 
-Este repositorio proporciona una herramienta de línea de comandos para generar muestras aleatorias reproducibles de hogares del **Censo de Población y Vivienda de Argentina 2010**.
+Este repositorio produce **muestras reproducibles de hogares del Censo Nacional de Población, Hogares y Viviendas 2010** a partir de una copia local autorizada de los microdatos.
 
-El muestreador lee las tablas de microdatos (`PERSONA.csv`, `HOGAR.csv`, `VIVIENDA.csv`, etc.), aplica ratios de proyección y genera los conjuntos de datos muestreados en formato CSV (predeterminado) o Parquet.
+La interfaz recomendada es la release inmutable `research.census-sample/v1`: selecciona hogares de forma determinística, conserva a todas las personas de cada hogar seleccionado, asigna identificadores estables, separa probabilidad de inclusión de políticas de proyección y publica QA, manifiesto y checksums verificables.
 
----
+## Interfaz actual: release gobernada
 
-This repository provides a command-line tool to generate reproducible random samples of households from the **2010 Argentina Population and Housing Census**.
+La unidad de selección es el **hogar**. La selección Bernoulli usa SHA-256 sobre `seed + household_id + stratum`, por lo que es estable frente al orden de filas y particiones. Los identificadores publicados son namespaced y reproducibles:
 
-The sampler reads the microdata tables (`PERSONA.csv`, `HOGAR.csv`, `VIVIENDA.csv`, etc.), applies projection ratios, and outputs sampled datasets in CSV (default) or Parquet.
-
----
-
-## Data requirements
-
-You must obtain the census microdata files beforehand. Two common sources:
-
-* INDEC 2010 Census REDATAM export (see unofficial mirrors such as [DatAR](http://datar.info/dataset/censo-nacional-de-poblacion-hogares-y-viviendas-2010-cd-redatam))
-* REDATAM-to-CSV converter for Windows: [aacademica.org/conversor.redatam](https://www.aacademica.org/conversor.redatam)
-
-Place the extracted files (e.g. `PERSONA.csv`, `HOGAR.csv`, `VIVIENDA.csv`) in a local directory, e.g. `/path/to/ext_CPV2010_basico_radio_pub`.
-
----
-
-## Installation
-
-Clone this repository and install dependencies:
-
-```bash
-git clone https://github.com/matuteiglesias/samplerCensoARG.git
-cd samplerCensoARG
-pip install -r requirements.txt
+```text
+cpv2010:<namespace>:household:<source-household-id>
+cpv2010:<namespace>:person:<source-person-id>
 ```
 
----
+La release canónica contiene:
 
-## Usage
+- `persons.csv` con `sample_person_id`, `sample_household_id`, sexo, edad, radio censal y peso;
+- `households.csv` con `sample_household_id`, departamento 2010, región y peso;
+- manifiesto de release con identidad de fuente, parámetros de selección y políticas;
+- QA de cobertura, cardinalidad y muestreo;
+- checksums SHA-256 para verificación offline.
 
-Run via the CLI module:
+El productor **no copia los microdatos fuente dentro de la release**. Los archivos CPV originales y las releases generadas permanecen fuera de Git.
 
-```bash
-python -m censo_sampler.cli -dbp /path/to/ext_CPV2010_basico_radio_pub [options]
+### Requisitos de datos
+
+La ejecución necesita una exportación local de CPV-2010 con, como mínimo:
+
+```text
+VIVIENDA.csv
+HOGAR.csv
+PERSONA.csv
 ```
 
-### Options
+También necesita un archivo de geografía determinístico con:
 
-* `-dbp, --databasepath PATH`
-  Path to the directory containing the census CSVs. **Required**.
-
-* `-f, --frac FLOAT`
-  Fraction of households to sample. Default = `0.01` (1%).
-
-* `-y, --years START END`
-  Year interval (half-open: includes START, excludes END). Example: `2015 2021`.
-
-* `-n, --nombre STR`
-  Tag to include in output filename (e.g. geographic area or experiment name).
-
-* `-d, --departamentos ID [ID ...]`
-  Restrict sampling to given department codes. Codes are listed in `./data/info/dptos.csv`.
-
-* `-p, --provincias ID [ID ...]`
-  Restrict sampling to given province codes. Codes are listed in `./data/info/provs.csv`.
-
-* `--out-dir PATH`
-  Output directory. Defaults to `./data/censo_samples`.
-
----
-
-## Examples
-
-Sample 5% of households nationwide (current year):
-
-```bash
-python -m censo_sampler.cli -dbp /path/ext_CPV2010_basico_radio_pub -f 0.05
+```text
+RADIO_REF_ID
+radio_2010_id
+department_2010_id
+region_id
 ```
 
-Sample 5% of households between 2015 and 2020:
+`region_id` debe pertenecer a una de las seis regiones soportadas por el contrato actual de canastas: `gran_buenos_aires`, `cuyo`, `noreste`, `noroeste`, `pampeana` o `patagonia`.
 
-```bash
-python -m censo_sampler.cli -dbp /path/ext_CPV2010_basico_radio_pub -f 0.05 -y 2015 2021
-```
+El repositorio no distribuye los microdatos del Censo. El operador es responsable de obtenerlos y tratarlos de acuerdo con sus condiciones de acceso, privacidad y uso.
 
-Sample 5% of households in Buenos Aires City (province code 2) for year 2020:
-
-```bash
-python -m censo_sampler.cli -dbp /path/ext_CPV2010_basico_radio_pub -f 0.05 -p 2 -y 2020 2021
-```
-
-Sample 5% of households in Pilar and Escobar (dept codes 6638, 6252) for year 2020:
-
-```bash
-python -m censo_sampler.cli -dbp /path/ext_CPV2010_basico_radio_pub -f 0.05 -d 6638 6252 -y 2020 2021
-```
-
-Sample 1% of households nationwide and tag output with “prueba”:
-
-```bash
-python -m censo_sampler.cli -dbp /path/ext_CPV2010_basico_radio_pub -n prueba
-```
-
----
-
-## Output
-
-* Files are written to the output directory (`--out-dir`), default `./data/censo_samples`.
-* Filenames follow:
-
-  ```
-  table_f{frac}_{year}_{nombre}.csv
-  ```
-* Parquet output will be added in future versions (CSV is always available).
-
-## Immutable sample release v1
-
-The supported poverty-consumer boundary is `research.census-sample/v1`. It uses
-household-level SHA-256 Bernoulli selection, an explicit seed, stable namespaced
-IDs, canonical `persons.csv` and `households.csv`, QA, a manifest, and SHA-256
-checksums. Selection is independent of input order and keeps every person in a
-selected household. Projection factors never alter the hidden sampling fraction:
-the manifest reports frame inclusion probability, inverse-probability weight,
-and the optional legacy projection policy separately.
+### Producción de una release
 
 ```bash
 python -m censo_sampler.cli release \
   --databasepath "$CENSUS_DB_PATH" \
   --geography /secure/local/GEOGRAPHY.csv \
-  --fraction 0.01 --seed 20260804 --analysis-period 2024-Q1 \
-  --name ARG --weight-policy legacy_department_projection_candidate \
-  --output-root /local/releases/census \
-  --handoff-dir /local/handoffs/indice-pobreza-UBA
+  --fraction 0.01 \
+  --seed 20260804 \
+  --analysis-period 2024-Q1 \
+  --name ARG \
+  --weight-policy cpv2010_frame_inverse_probability \
+  --output-root /local/releases/census
 ```
 
-The geography crosswalk must contain `RADIO_REF_ID`, zero-preserving
-`radio_2010_id` and `department_2010_id`, and one of the six basket `region_id`
-values. A full-compatible release fails rather than silently assigning unresolved
-Buenos Aires departments. Use `--departments` for an explicitly bounded,
-unambiguous subset and `--max-households` to enforce a local processing bound.
-The handoff is a physical copy, never a sibling symlink.
+Para una integración explícita puede agregarse `--handoff-dir`; el handoff es una copia física, nunca un symlink hacia un repositorio hermano.
 
-Offline verification:
+Use `--departments` para un subconjunto departamental explícito y `--max-households` como límite operativo local.
+
+La política histórica `legacy_department_projection_candidate` sigue disponible como opción explícita. Los factores de proyección no cambian silenciosamente la fracción muestral: el manifiesto distingue probabilidad de inclusión, peso inverso y política de proyección.
+
+### Verificación offline
 
 ```bash
 make check
@@ -148,13 +75,63 @@ make sample-release-fixture
 make sample-release-check RELEASE_DIR=/path/to/release
 ```
 
-Raw CPV files and generated releases are ignored by Git. The operator remains
-responsible for lawful access, privacy, and data rights; projected CPV-2010
-weights are not an official current population estimate.
+La verificación falla de forma cerrada ante, entre otros casos:
 
----
+- tablas o columnas requeridas ausentes;
+- IDs fuente duplicados o vacíos;
+- personas huérfanas o hogares sin vivienda;
+- radios sin geografía;
+- regiones inválidas;
+- pesos no positivos;
+- rutas de salida inseguras;
+- una release o checksum que no coincide con su manifiesto.
 
-## Attribution
+## Privacidad y límites de uso
 
-This software uses data originally produced by **INDEC (Instituto Nacional de Estadística y Censos, Argentina)**, Census 2010.
-The publisher of this repository is not affiliated with INDEC.
+Este proyecto contiene **código de muestreo**, no autoridad sobre los microdatos censales ni una estimación oficial de población actual.
+
+- No suba microdatos CPV ni muestras con información sensible a Git.
+- Mantenga source data, releases y handoffs en almacenamiento local/controlado.
+- Una muestra proyectada desde CPV-2010 no es una población observada en un período posterior.
+- Los identificadores publicados en la release son identificadores de investigación namespaced; no reemplazan los identificadores nativos de la fuente.
+- La release v1 está diseñada para downstreams que necesitan identidad exacta y reproducibilidad, no para publicar microdatos individuales.
+
+## Instalación
+
+```bash
+git clone https://github.com/matuteiglesias/samplerCensoARG.git
+cd samplerCensoARG
+pip install -r requirements.txt
+```
+
+## Interfaz histórica / exploratoria
+
+El repositorio conserva la CLI original para muestreos ad hoc. Es útil para exploración y compatibilidad histórica, pero **no es la interfaz recomendada para handoffs científicos reproducibles**.
+
+```bash
+python -m censo_sampler.cli -dbp /path/to/ext_CPV2010_basico_radio_pub [options]
+```
+
+Opciones históricas principales:
+
+- `-dbp, --databasepath PATH`: directorio con los CSV del Censo;
+- `-f, --frac FLOAT`: fracción de hogares a muestrear;
+- `-y, --years START END`: intervalo de años usado por la lógica histórica de proyección;
+- `-n, --nombre STR`: etiqueta de salida;
+- `-d, --departamentos ID [...]`: restringe departamentos;
+- `-p, --provincias ID [...]`: restringe provincias;
+- `--out-dir PATH`: directorio de salida.
+
+Ejemplo exploratorio:
+
+```bash
+python -m censo_sampler.cli -dbp /path/ext_CPV2010_basico_radio_pub -f 0.05 -p 2 -y 2020 2021
+```
+
+La salida histórica usa archivos por tabla y parámetros de ejecución. Para nuevos consumidores, prefiera siempre `research.census-sample/v1` y su manifiesto verificable.
+
+## Fuentes y atribución
+
+El software está diseñado para trabajar con datos producidos por **INDEC — Instituto Nacional de Estadística y Censos de la República Argentina**. Este repositorio no está afiliado a INDEC y no redistribuye los microdatos censales.
+
+Fuentes o herramientas históricamente utilizadas para obtener/exportar CPV-2010 pueden haber cambiado; una URL de terceros no debe interpretarse como fuente oficial vigente ni como autorización de redistribución.
