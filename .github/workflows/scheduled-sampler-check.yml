@@ -1,0 +1,40 @@
+name: Scheduled sampler contract check
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "47 11 * * 2"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduled-sampler-contract-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run deterministic sample-release fixture and validation
+        run: make check
+
+      - name: Report maturity boundary
+        if: always()
+        run: |
+          {
+            echo "## Scheduled sampler check"
+            echo
+            echo "Green here proves the deterministic sample identity/release fixture remains executable. It does **not** claim that the governed target-year donor-mass/target-mass implementation or exact demographic parent from issue #7 is complete."
+            echo
+            echo "The eventual mature scheduled job should replace the fixture-only refresh with one exact real target-year release once #7 closes."
+          } >> "$GITHUB_STEP_SUMMARY"
