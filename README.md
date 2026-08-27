@@ -2,7 +2,9 @@
 
 Este repositorio produce **muestras reproducibles de hogares del Censo Nacional de Población, Hogares y Viviendas 2010** a partir de una copia local autorizada de los microdatos.
 
-La interfaz recomendada es la release inmutable `research.census-sample/v1`: selecciona hogares de forma determinística, conserva a todas las personas de cada hogar seleccionado, asigna identificadores estables, separa probabilidad de inclusión de políticas de proyección y publica QA, manifiesto y checksums verificables.
+La interfaz recomendada es la release inmutable `research.census-sample/v1`: selecciona hogares de forma determinística, conserva a todas las personas de cada hogar seleccionado, asigna identificadores estables y publica QA, manifiesto y checksums verificables.
+
+El repositorio también posee la semántica de un modo opcional de **muestreo objetivo por año**: la distribución de hogares seleccionados entre departamentos puede modificarse usando una fuente exacta de población por departamento del año objetivo. Ese mecanismo es parte del diseño muestral; no es una capa posterior de calibración poblacional. Véase [`docs/TARGET_YEAR_HOUSEHOLD_SAMPLING.md`](docs/TARGET_YEAR_HOUSEHOLD_SAMPLING.md).
 
 ## Interfaz actual: release gobernada
 
@@ -42,7 +44,7 @@ department_2010_id
 region_id
 ```
 
-`region_id` debe pertenecer a una de las seis regiones soportadas por el contrato actual de canastas: `gran_buenos_aires`, `cuyo`, `noreste`, `noroeste`, `pampeana` o `patagonia`.
+`region_id` pertenece todavía al contrato implementado actual y debe usar una de las seis regiones soportadas por la integración histórica de canastas. La arquitectura objetivo lo separa de la identidad censal intrínseca y lo obtiene mediante un binding territorial gobernado.
 
 El repositorio no distribuye los microdatos del Censo. El operador es responsable de obtenerlos y tratarlos de acuerdo con sus condiciones de acceso, privacidad y uso.
 
@@ -64,7 +66,13 @@ Para una integración explícita puede agregarse `--handoff-dir`; el handoff es 
 
 Use `--departments` para un subconjunto departamental explícito y `--max-households` como límite operativo local.
 
-La política histórica `legacy_department_projection_candidate` sigue disponible como opción explícita. Los factores de proyección no cambian silenciosamente la fracción muestral: el manifiesto distingue probabilidad de inclusión, peso inverso y política de proyección.
+### Muestreo objetivo por año
+
+El método histórico usaba una tabla de población por departamento y modificaba la probabilidad de seleccionar hogares según el tamaño relativo del departamento en el año objetivo respecto de 2010. El objetivo es obtener una muestra sintética suficientemente grande cuya **composición geográfica departamental** se aproxime a la del año indicado, manteniendo los hogares de Censo-2010 como donor frame.
+
+Ese mecanismo no actualiza por separado edad, educación, empleo, tamaño del hogar u otras dimensiones dentro del departamento. La validez de esas dimensiones descansa en la representatividad estadística del muestreo de hogares suficientemente grande y debe quedar declarada como supuesto del producto.
+
+La implementación gobernada actual **todavía no debe considerarse una implementación aprobada de este método objetivo por año**. La opción histórica `legacy_department_projection_candidate` y el único campo `sample_weight` conservan semánticas heredadas que necesitan reparación antes de un real scientific run. En particular, una ponderación inversa `1 / p` puede deshacer deliberadamente la composición geográfica creada por probabilidades departamentales diferentes. El contrato moderno deberá separar `selection_probability`, peso inverso de diseño y cualquier `analysis_weight` autorizado.
 
 ### Verificación offline
 
@@ -81,7 +89,7 @@ La verificación falla de forma cerrada ante, entre otros casos:
 - IDs fuente duplicados o vacíos;
 - personas huérfanas o hogares sin vivienda;
 - radios sin geografía;
-- regiones inválidas;
+- regiones inválidas en el contrato implementado actual;
 - pesos no positivos;
 - rutas de salida inseguras;
 - una release o checksum que no coincide con su manifiesto.
@@ -92,7 +100,7 @@ Este proyecto contiene **código de muestreo**, no autoridad sobre los microdato
 
 - No suba microdatos CPV ni muestras con información sensible a Git.
 - Mantenga source data, releases y handoffs en almacenamiento local/controlado.
-- Una muestra proyectada desde CPV-2010 no es una población observada en un período posterior.
+- Una muestra objetivo derivada desde CPV-2010 sigue formada por hogares/personas observados en 2010; el año objetivo informa su composición departamental, no convierte los registros en observaciones contemporáneas.
 - Los identificadores publicados en la release son identificadores de investigación namespaced; no reemplazan los identificadores nativos de la fuente.
 - La release v1 está diseñada para downstreams que necesitan identidad exacta y reproducibilidad, no para publicar microdatos individuales.
 
@@ -115,8 +123,8 @@ python -m censo_sampler.cli -dbp /path/to/ext_CPV2010_basico_radio_pub [options]
 Opciones históricas principales:
 
 - `-dbp, --databasepath PATH`: directorio con los CSV del Censo;
-- `-f, --frac FLOAT`: fracción de hogares a muestrear;
-- `-y, --years START END`: intervalo de años usado por la lógica histórica de proyección;
+- `-f, --frac FLOAT`: fracción base de hogares a muestrear;
+- `-y, --years START END`: intervalo de años usado por la lógica histórica de muestreo con tamaños relativos departamentales;
 - `-n, --nombre STR`: etiqueta de salida;
 - `-d, --departamentos ID [...]`: restringe departamentos;
 - `-p, --provincias ID [...]`: restringe provincias;

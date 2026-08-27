@@ -6,30 +6,35 @@ repository:
   github: matuteiglesias/samplerCensoARG
 domain: research
 system: research.census
-role: census-sample-producer
+role: census-household-sample-producer
 lifecycle: active-bounded
 authority:
   status: current
   owns:
-  - deterministic Census sample selection and stable sample identity
+  - deterministic Census household sample selection and stable sample identity
   - person-to-household membership in sampled releases
-  - sampling probability, sample weights, QA, manifests and checksums
-  - packaging and verification of research.census-sample/v1
+  - sampling probability and declared sampling-design semantics
+  - optional target-year department-stratified household sampling when an exact population-by-department parent is supplied
+  - QA, manifests, checksums and packaging of research.census-sample/v1
   does_not_own:
   - official Census publication or Census geography authority
-  - poverty methodology or classification
+  - demographic projection methodology or authority over population-by-department source values
+  - post-sampling population calibration framework
+  - welfare inference, poverty methodology or poverty classification
   - EPH preprocessing, model training or model selection
-  - income-model scientific methodology
   - Census microdata redistribution rights
 interfaces:
   consumes:
   - local-authorized CPV-2010 microdata tables
-  - explicit Census geography identity/crosswalk input
+  - explicit Census geography identity input
+  - optional exact population-by-department release for target-year sampling
   produces:
   - artifact:research.census-sample@1
 upstream:
 - repo.argentina-geography
+# Demographic source owner is intentionally unresolved until one exact target-year product is pinned.
 downstream:
+- repo.encuestador-de-hogares
 - repo.indice-pobreza-uba
 canonical_commands:
 - name: produce-sample-release
@@ -41,13 +46,22 @@ generated_paths:
 - data/censo_samples/
 - releases/
 - handoffs/
+scientific_invariants:
+- household is the primary sampling unit for the current poverty/inference use case
+- all persons belonging to a selected household remain linked to that household
+- target-year sampling may alter department selection probabilities but does not change the Census frame vintage
+- target-year department population information changes geographic composition only; within-department demographic and socioeconomic distributions remain donor-frame assumptions
+- selection_probability, design inverse-probability weight and downstream analysis_weight are distinct semantics
+- no downstream consumer may infer a target-year analysis weight from a generic sample_weight field
 verification:
-  status: fixture-implemented
+  status: fixture-implemented-target-year-method-pending
   last_verified: '2026-08-04'
   command: make check && make test && make sample-release-fixture
   unknowns:
   - exact authorized local CPV-2010 source identity for each real release
   - final geography binding used by each real release
+  - exact governed population-by-department source for any target-year run
+  - current release code still overloads weight semantics and does not yet constitute the approved target-year household-sampling method
 maintenance:
-  cadence: quarterly
+  cadence: active-development
   next_review: '2026-11-01'
