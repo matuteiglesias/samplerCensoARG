@@ -15,8 +15,8 @@ import shutil
 import sqlite3
 import tempfile
 from collections import Counter
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 CONTRACT = "research.cpv2010-donor-frame-lock/v1"
 SOURCE_FILES = ("VIVIENDA.csv", "HOGAR.csv", "PERSONA.csv")
@@ -125,10 +125,7 @@ def build_donor_frame_lock(
     if output_root == source or source in output_root.parents:
         raise DonorFrameError("unsafe_output_path_inside_source")
 
-    source_meta = {
-        name: _source_meta(source / name)
-        for name in SOURCE_FILES
-    }
+    source_meta = {name: _source_meta(source / name) for name in SOURCE_FILES}
     geography_meta = _source_meta(geography)
     identity = {
         "contract": CONTRACT,
@@ -183,7 +180,11 @@ def build_donor_frame_lock(
                 conn,
                 "INSERT INTO geo(radio, radio_2010, dept) VALUES (?, ?, ?)",
                 (
-                    (row["RADIO_REF_ID"], row["radio_2010_id"], row["department_2010_id"])
+                    (
+                        row["RADIO_REF_ID"],
+                        row["radio_2010_id"],
+                        row["department_2010_id"],
+                    )
                     for row in geography_rows
                 ),
                 duplicate_reason="GEOGRAPHY:duplicate_or_empty_RADIO_REF_ID",
@@ -196,7 +197,10 @@ def build_donor_frame_lock(
             vivienda_count = _execute_unique_rows(
                 conn,
                 "INSERT INTO vivienda(viv, radio) VALUES (?, ?)",
-                ((row["VIVIENDA_REF_ID"], row["RADIO_REF_ID"]) for row in vivienda_rows),
+                (
+                    (row["VIVIENDA_REF_ID"], row["RADIO_REF_ID"])
+                    for row in vivienda_rows
+                ),
                 duplicate_reason="VIVIENDA:duplicate_or_empty_VIVIENDA_REF_ID",
             )
             hogar_rows = _iter_rows(
@@ -207,7 +211,10 @@ def build_donor_frame_lock(
             household_count = _execute_unique_rows(
                 conn,
                 "INSERT INTO hogar(hh, viv) VALUES (?, ?)",
-                ((row["HOGAR_REF_ID"], row["VIVIENDA_REF_ID"]) for row in hogar_rows),
+                (
+                    (row["HOGAR_REF_ID"], row["VIVIENDA_REF_ID"])
+                    for row in hogar_rows
+                ),
                 duplicate_reason="HOGAR:duplicate_or_empty_HOGAR_REF_ID",
             )
             conn.commit()
@@ -287,7 +294,8 @@ def build_donor_frame_lock(
             ).fetchone()[0]
             if orphan_person_households:
                 raise DonorFrameError(
-                    f"donor_relational_failure:orphan_person_households={orphan_person_households}"
+                    "donor_relational_failure:"
+                    f"orphan_person_households={orphan_person_households}"
                 )
             masses = [
                 (str(dept), int(mass))
@@ -396,7 +404,11 @@ def validate_donor_frame_lock(
     if not geography.is_file() or expected_geography != _sha256(geography):
         raise DonorFrameError("donor_lock_geography_hash_mismatch")
     mass_path = root / "donor_person_mass.csv"
-    expected_mass = ((manifest.get("artifacts") or {}).get("donor_person_mass.csv") or {}).get("sha256")
+    expected_mass = (
+        ((manifest.get("artifacts") or {}).get("donor_person_mass.csv") or {}).get(
+            "sha256"
+        )
+    )
     if not mass_path.is_file() or expected_mass != _sha256(mass_path):
         raise DonorFrameError("donor_lock_mass_artifact_hash_mismatch")
     return manifest
