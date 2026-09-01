@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from .release import ReleaseError, build_release, check_release
+from .target_year import TargetYearSamplingError, build_target_year_release
 
 
 def _release_parser():
@@ -36,6 +37,37 @@ def _release_main(argv):
                          analysis_period=args.analysis_period, name=args.name, weight_policy=args.weight_policy,
                          departments=args.departments, geography_path=args.geography,
                          handoff_dir=args.handoff_dir, max_households=args.max_households)
+    print(path)
+    return 0
+
+
+def _target_year_release_parser():
+    parser = argparse.ArgumentParser(prog="censo-sampler target-year-release")
+    parser.add_argument("--databasepath", required=True)
+    parser.add_argument("--target-population", required=True)
+    parser.add_argument("--target-source-id", required=True)
+    parser.add_argument("--target-year", type=int, required=True, choices=[2024, 2025])
+    parser.add_argument("--fraction", type=float, default=0.01)
+    parser.add_argument("--seed", type=int, default=20260831)
+    parser.add_argument("--output-root", required=True)
+    parser.add_argument("--geography")
+    parser.add_argument("--max-households", type=int, default=100000)
+    return parser
+
+
+def _target_year_release_main(argv):
+    args = _target_year_release_parser().parse_args(argv)
+    path = build_target_year_release(
+        args.databasepath,
+        args.output_root,
+        target_population_path=args.target_population,
+        target_source_id=args.target_source_id,
+        target_year=args.target_year,
+        fraction=args.fraction,
+        seed=args.seed,
+        geography_path=args.geography,
+        max_households=args.max_households,
+    )
     print(path)
     return 0
 
@@ -100,9 +132,11 @@ def main(argv=None):
     try:
         if argv and argv[0] == "release":
             return _release_main(argv[1:])
+        if argv and argv[0] == "target-year-release":
+            return _target_year_release_main(argv[1:])
         if argv and argv[0] == "check-release":
             return _check_main(argv[1:])
-    except ReleaseError as exc:
+    except (ReleaseError, TargetYearSamplingError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     # The historical sampler has optional pandas/Dask dependencies. Keep these
