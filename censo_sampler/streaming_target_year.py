@@ -12,14 +12,15 @@ Python heap.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
 import shutil
 import sqlite3
 import tempfile
 from collections import Counter
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from .target_year import (
     ALGORITHM,
@@ -156,8 +157,6 @@ def build_target_year_release_streaming(
         "source_files": source_meta,
         "geography_sha256": geography_sha256,
     }
-    import hashlib
-
     identity_hash = hashlib.sha256(
         json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
@@ -190,7 +189,7 @@ def build_target_year_release_streaming(
                 "CREATE TABLE persona (person TEXT PRIMARY KEY, hh TEXT NOT NULL, sex TEXT NOT NULL, age TEXT NOT NULL)"
             )
 
-            geography_count = _insert_unique(
+            _insert_unique(
                 conn,
                 "INSERT INTO geo(radio,radio_2010,dept) VALUES (?,?,?)",
                 (
@@ -208,7 +207,7 @@ def build_target_year_release_streaming(
                 table="GEOGRAPHY",
                 key="RADIO_REF_ID",
             )
-            vivienda_count = _insert_unique(
+            _insert_unique(
                 conn,
                 "INSERT INTO vivienda(viv,radio) VALUES (?,?)",
                 (
