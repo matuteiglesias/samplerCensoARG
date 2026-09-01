@@ -5,12 +5,14 @@ on:
     paths:
       - .github/workflows/target-year-sampling-ci.yml
       - censo_sampler/target_year.py
+      - censo_sampler/streaming_target_year.py
       - censo_sampler/target_population.py
       - censo_sampler/governed_target_year.py
       - censo_sampler/donor_frame.py
       - censo_sampler/cli.py
       - data/info/proy_pop200125.csv
       - tests/test_target_year_sampling.py
+      - tests/test_streaming_target_year.py
       - tests/test_target_population_parent.py
       - tests/test_donor_frame_lock.py
   push:
@@ -19,12 +21,14 @@ on:
     paths:
       - .github/workflows/target-year-sampling-ci.yml
       - censo_sampler/target_year.py
+      - censo_sampler/streaming_target_year.py
       - censo_sampler/target_population.py
       - censo_sampler/governed_target_year.py
       - censo_sampler/donor_frame.py
       - censo_sampler/cli.py
       - data/info/proy_pop200125.csv
       - tests/test_target_year_sampling.py
+      - tests/test_streaming_target_year.py
       - tests/test_target_population_parent.py
       - tests/test_donor_frame_lock.py
 
@@ -49,15 +53,18 @@ jobs:
         run: >-
           ruff check
           censo_sampler/target_year.py
+          censo_sampler/streaming_target_year.py
           censo_sampler/target_population.py
           censo_sampler/governed_target_year.py
           censo_sampler/donor_frame.py
           tests/test_target_year_sampling.py
+          tests/test_streaming_target_year.py
           tests/test_target_population_parent.py
           tests/test_donor_frame_lock.py
       - name: Verify target-year boundary
         run: >-
           pytest -q
           tests/test_target_year_sampling.py
+          tests/test_streaming_target_year.py
           tests/test_target_population_parent.py
           tests/test_donor_frame_lock.py
