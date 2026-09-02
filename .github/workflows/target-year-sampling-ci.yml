@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/target-year-sampling-ci.yml
+      - Makefile
       - pyproject.toml
       - censo_sampler/target_year.py
       - censo_sampler/streaming_target_year.py
@@ -31,6 +32,7 @@ on:
       - main
     paths:
       - .github/workflows/target-year-sampling-ci.yml
+      - Makefile
       - pyproject.toml
       - censo_sampler/target_year.py
       - censo_sampler/streaming_target_year.py
@@ -104,3 +106,5 @@ jobs:
           tests/test_frame_v2_parity.py
           tests/test_frame_cli.py
           tests/test_frame_feature_independence.py
+      - name: Exercise frame-based operational targets
+        run: make frame-check sample-v2-check
