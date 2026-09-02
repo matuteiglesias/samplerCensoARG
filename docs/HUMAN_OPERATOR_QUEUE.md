@@ -17,6 +17,8 @@ censo-sampler frame build-2010 \
 censo-sampler frame check /secure/frames/<frame-release>
 ```
 
+The build command itself now requires a successful deep relational validation before reporting success; the explicit second check remains useful as a detached verification command.
+
 Record:
 
 - frame release ID;
@@ -28,13 +30,25 @@ Record:
 
 Expected outcome: a validated local `research.census-frame/v1`. No real Census payload should be committed to Git.
 
-## H2 — Run one real v2 CPV-2010 sample
+## H2 — Plan, then run one real v2 CPV-2010 sample
 
 After H1, use the already governed target-population parent for 2024 and/or 2025.
 
-Run the frame-based sampler and `check-release-v2`.
+First run without selecting/writing Census rows:
+
+```bash
+censo-sample-plan \
+  --frame /secure/frames/<frame-release> \
+  --target-population /secure/targets/<target-release> \
+  --target-year 2024 \
+  --fraction 0.01
+```
+
+If the plan is `ready`, run the frame-based sampler and `check-release-v2`.
 
 This is a scale/materialization qualification; fixture CI already proves scientific parity with the old streaming sampler.
+
+Record elapsed time, peak memory if convenient, output sizes, selected household/person counts and any department probability diagnostics.
 
 ## H3 — Produce the real bounded CPV-2022 relational extract upstream
 
@@ -63,9 +77,26 @@ censo-sampler frame check /path/to/cpv2022-frame
 
 Expected: exact 73/56/137 source-universe preservation for the bounded VP extract, subject to the frame's household/person universe semantics.
 
-## H5 — Run the same sampler on the bounded CPV-2022 frame
+## H5 — Plan, then run the same sampler on the bounded CPV-2022 frame
 
-Use the same `censo-sampler sample --frame ...` interface as CPV-2010.
+Use the same sampler semantics as CPV-2010.
+
+First:
+
+```bash
+censo-sample-plan \
+  --frame /path/to/cpv2022-frame \
+  --target-population /path/to/compatible-target \
+  --target-year 2024 \
+  --fraction <bounded-value> \
+  --details
+```
+
+Then, when ready:
+
+```bash
+censo-sampler sample --frame /path/to/cpv2022-frame ...
+```
 
 This is the real-data acceptance gate for claiming CPV-2022 support rather than synthetic compatibility only.
 
@@ -79,7 +110,15 @@ vs
 governed target-population department_id set
 ```
 
-The current policy intentionally assumes code identity and fails closed on differences.
+`censo-sample-plan --details` performs this comparison and reports:
+
+```text
+matched
+frame_only
+target_only
+```
+
+The current policy intentionally assumes code identity and blocks on differences.
 
 If a small set of split/renamed departments appears, record the exact exceptions. Only then design a tiny explicit governed crosswalk. Do not invent broad historical-geography machinery preemptively.
 
@@ -92,7 +131,11 @@ Only after:
 - department exceptions are understood;
 - disk/runtime budgets are known.
 
-Materialize and deep-check the national 2022 frame, then run the desired 2024/2025 sample release(s).
+Materialize and deep-check the national 2022 frame.
+
+Before writing a national sample, run `censo-sample-plan` at the intended fraction/year and preserve its JSON output with the run notes. Only proceed if it reports `status=ready` or after an explicitly governed resolution of the reported blocker.
+
+Then run the desired 2024/2025 sample release(s) and detached v2 validation.
 
 ## Deferred human decisions, not current blockers
 
@@ -104,3 +147,5 @@ Materialize and deep-check the national 2022 frame, then run the desired 2024/20
 ## Current software status
 
 Everything before the real-data materialization gates is expected to remain automatable in CI. If an agent encounters a software task that can be tested with fixtures, it should implement it rather than adding it to this queue.
+
+See `SAMPLE_PLAN.md` for the non-materializing planning contract and `IMPLEMENTATION_STATUS.md` for completed agent packets.
