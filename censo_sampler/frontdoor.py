@@ -27,6 +27,11 @@ def _frame_build_2010(argv: list[str]) -> int:
         Path(args.output_root),
         geography_path=Path(args.geography) if args.geography else None,
     )
+    # A build command is a publication boundary: do not report success until the
+    # produced immutable frame passes the complete relational contract. The
+    # frame is left in place on failure for forensic inspection rather than
+    # silently deleting potentially expensive local output.
+    validate_frame(path, verify_hashes=True, deep=True)
     print(path)
     return 0
 
