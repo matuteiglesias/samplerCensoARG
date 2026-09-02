@@ -20,12 +20,37 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def load_target_population(parent: Path, target_year: int) -> tuple[dict[str, int], dict[str, Any]]:
+def _verify_manifest_payload(
+    source_manifest: dict[str, Any], path: Path, payload_sha256: str
+) -> None:
+    """Verify a governed parent's declared payload hash when one is present."""
+    artifacts = source_manifest.get("artifacts")
+    if artifacts is None:
+        return
+    if not isinstance(artifacts, dict):
+        raise TargetPopulationAdapterError("target_population_manifest_artifacts_invalid")
+    record = artifacts.get(path.name)
+    if record is None:
+        raise TargetPopulationAdapterError(
+            f"target_population_manifest_artifact_missing:{path.name}"
+        )
+    if not isinstance(record, dict) or not isinstance(record.get("sha256"), str):
+        raise TargetPopulationAdapterError(
+            f"target_population_manifest_hash_missing:{path.name}"
+        )
+    if record["sha256"] != payload_sha256:
+        raise TargetPopulationAdapterError("target_population_payload_hash_mismatch")
+
+
+def load_target_population(
+    parent: Path, target_year: int
+) -> tuple[dict[str, int], dict[str, Any]]:
     """Return neutral ``department_id -> person mass`` for one target year.
 
     Existing governed parents with ``department_2010_id`` are adapted without
     mutating their payload. A future parent may provide ``department_id``
-    directly.
+    directly. When a parent manifest declares artifact hashes, custody is
+    verified before any sampling probabilities are computed.
     """
     parent = Path(parent).expanduser().resolve()
     if parent.is_dir():
@@ -37,13 +62,19 @@ def load_target_population(parent: Path, target_year: int) -> tuple[dict[str, in
     if not path.is_file():
         raise TargetPopulationAdapterError("target_population_payload_missing")
 
+    payload_sha256 = _sha256(path)
     source_manifest: dict[str, Any] | None = None
     manifest_sha256: str | None = None
     if manifest_path is not None and manifest_path.is_file():
         try:
             source_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise TargetPopulationAdapterError("target_population_manifest_invalid") from exc
+            raise TargetPopulationAdapterError(
+                "target_population_manifest_invalid"
+            ) from exc
+        if not isinstance(source_manifest, dict):
+            raise TargetPopulationAdapterError("target_population_manifest_invalid")
+        _verify_manifest_payload(source_manifest, path, payload_sha256)
         manifest_sha256 = _sha256(manifest_path)
 
     with path.open("r", encoding="utf-8-sig", newline="") as stream:
@@ -63,7 +94,9 @@ def load_target_population(parent: Path, target_year: int) -> tuple[dict[str, in
             try:
                 year = int((row.get("target_year") or "").strip())
             except ValueError as exc:
-                raise TargetPopulationAdapterError("target_population_invalid_year") from exc
+                raise TargetPopulationAdapterError(
+                    "target_population_invalid_year"
+                ) from exc
             if year != target_year:
                 continue
             department = (row.get(department_field) or "").strip()
@@ -89,7 +122,7 @@ def load_target_population(parent: Path, target_year: int) -> tuple[dict[str, in
 
     return masses, {
         "source_path": path.name,
-        "sha256": _sha256(path),
+        "sha256": payload_sha256,
         "size_bytes": path.stat().st_size,
         "source_department_field": department_field,
         "department_alignment_policy": "assume-code-identity/v1",
