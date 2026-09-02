@@ -17,6 +17,8 @@ on:
       - censo_sampler/frame_2010.py
       - censo_sampler/selection.py
       - censo_sampler/target_adapter.py
+      - censo_sampler/planning.py
+      - censo_sampler/plan_cli.py
       - censo_sampler/release_v2.py
       - data/info/proy_pop200125.csv
       - tests/test_target_year_sampling.py
@@ -28,6 +30,7 @@ on:
       - tests/test_frame_cli.py
       - tests/test_frame_feature_independence.py
       - tests/test_frame_v2_robustness.py
+      - tests/test_sample_plan.py
   push:
     branches:
       - main
@@ -46,6 +49,8 @@ on:
       - censo_sampler/frame_2010.py
       - censo_sampler/selection.py
       - censo_sampler/target_adapter.py
+      - censo_sampler/planning.py
+      - censo_sampler/plan_cli.py
       - censo_sampler/release_v2.py
       - data/info/proy_pop200125.csv
       - tests/test_target_year_sampling.py
@@ -57,6 +62,7 @@ on:
       - tests/test_frame_cli.py
       - tests/test_frame_feature_independence.py
       - tests/test_frame_v2_robustness.py
+      - tests/test_sample_plan.py
 
 permissions:
   contents: read
@@ -88,6 +94,8 @@ jobs:
           censo_sampler/frame_2010.py
           censo_sampler/selection.py
           censo_sampler/target_adapter.py
+          censo_sampler/planning.py
+          censo_sampler/plan_cli.py
           censo_sampler/release_v2.py
           tests/test_target_year_sampling.py
           tests/test_streaming_target_year.py
@@ -98,6 +106,7 @@ jobs:
           tests/test_frame_cli.py
           tests/test_frame_feature_independence.py
           tests/test_frame_v2_robustness.py
+          tests/test_sample_plan.py
       - name: Verify legacy and vintage-neutral sampling boundaries
         run: >-
           pytest -q
@@ -110,5 +119,6 @@ jobs:
           tests/test_frame_cli.py
           tests/test_frame_feature_independence.py
           tests/test_frame_v2_robustness.py
+          tests/test_sample_plan.py
       - name: Exercise frame-based operational targets
         run: make frame-check sample-v2-check
