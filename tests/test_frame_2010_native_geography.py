@@ -1,7 +1,7 @@
 from pathlib import Path
+import shutil
 
 import pyarrow as pa
-import pyarrow.csv as pacsv
 import pyarrow.parquet as pq
 
 from censo_sampler.frame_2010 import build_cpv2010_frame
@@ -12,35 +12,40 @@ ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures" / "cpv2010_valid"
 
 
-def _native_geo(path: Path) -> Path:
-    source = pacsv.read_csv(FIXTURE / "GEOGRAPHY.csv")
-    rows = source.to_pylist()
-    native = []
-    for row in rows:
-        native.append(
-            {
-                "PROV_REF_ID": 1,
-                "CPV2010_REF_ID": 1,
-                "IDPROV": int(str(row["department_2010_id"])[:2]),
-                "DPTO_REF_ID": 1,
-                "IDDPTO": int(row["department_2010_id"]),
-                "FRAC_REF_ID": 1,
-                "RADIO_REF_ID": int(row["RADIO_REF_ID"]),
-                "IDRADIO": int(row["radio_2010_id"]),
-            }
-        )
-    pq.write_table(pa.Table.from_pylist(native), path)
-    return path
+def _native_source(root: Path) -> tuple[Path, Path]:
+    source = root / "Censo_2010"
+    source.mkdir()
+    shutil.copy2(FIXTURE / "HOGAR.csv", source / "HOGAR.csv")
+    shutil.copy2(FIXTURE / "PERSONA.csv", source / "PERSONA.csv")
+
+    vivienda = (FIXTURE / "VIVIENDA.csv").read_text(encoding="utf-8")
+    for old, new in {"r001": "1", "r002": "2", "r003": "3", "r004": "4"}.items():
+        vivienda = vivienda.replace(old, new)
+    (source / "VIVIENDA.csv").write_text(vivienda, encoding="utf-8")
+
+    geography = root / "GEO.parquet"
+    pq.write_table(
+        pa.Table.from_pylist(
+            [
+                {"PROV_REF_ID": 1, "CPV2010_REF_ID": 1, "IDPROV": 2, "DPTO_REF_ID": 1, "IDDPTO": 2001, "FRAC_REF_ID": 1, "RADIO_REF_ID": 1, "IDRADIO": 20010101},
+                {"PROV_REF_ID": 2, "CPV2010_REF_ID": 1, "IDPROV": 50, "DPTO_REF_ID": 2, "IDDPTO": 50007, "FRAC_REF_ID": 2, "RADIO_REF_ID": 2, "IDRADIO": 500070201},
+                {"PROV_REF_ID": 3, "CPV2010_REF_ID": 1, "IDPROV": 90, "DPTO_REF_ID": 3, "IDDPTO": 90084, "FRAC_REF_ID": 3, "RADIO_REF_ID": 3, "IDRADIO": 900840301},
+                {"PROV_REF_ID": 4, "CPV2010_REF_ID": 1, "IDPROV": 94, "DPTO_REF_ID": 4, "IDDPTO": 94008, "FRAC_REF_ID": 4, "RADIO_REF_ID": 4, "IDRADIO": 940080101},
+            ]
+        ),
+        geography,
+    )
+    return source, geography
 
 
 def test_native_geo_parquet_maps_iddpto_and_idradio(tmp_path: Path) -> None:
-    geography = _native_geo(tmp_path / "GEO.parquet")
+    source, geography = _native_source(tmp_path)
     profile = inspect_geography_source(geography)
     assert profile["radio_field"] == "IDRADIO"
     assert profile["department_field"] == "IDDPTO"
 
     frame = build_cpv2010_frame(
-        FIXTURE,
+        source,
         tmp_path / "frames",
         geography_path=geography,
     )
@@ -60,4 +65,9 @@ def test_native_geo_parquet_maps_iddpto_and_idradio(tmp_path: Path) -> None:
         "90084",
         "94008",
     }
-    assert all(len(row["radio_id"]) == 9 for row in hh)
+    assert {row["radio_id"] for row in hh} == {
+        "020010101",
+        "500070201",
+        "900840301",
+        "940080101",
+    }
