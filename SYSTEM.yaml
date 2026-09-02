@@ -15,9 +15,14 @@ authority:
   - person-to-household membership in sampled releases
   - sampling probability and declared sampling-design semantics
   - optional target-year department-stratified household sampling when an exact population-by-department parent is supplied
-  - QA, manifests, checksums and packaging of research.census-sample/v1
+  - vintage-neutral research.census-frame/v1 validation and the CPV-2010 CSV-to-Parquet frame builder
+  - key-first selection artifacts and optional full relational payload materialization
+  - QA, manifests, hashes and packaging of research.census-target-year-sample/v2
+  - compatibility/regression support for the historical CPV-2010 v1 release path
   does_not_own:
+  - RXDB/RedEngine extraction or the CPV-2022 source adapter
   - official Census publication or Census geography authority
+  - EPH/Census feature projection or semantic alignment
   - demographic projection methodology or authority over population-by-department source values
   - post-sampling population calibration framework
   - welfare inference, poverty methodology or poverty classification
@@ -25,23 +30,32 @@ authority:
   - Census microdata redistribution rights
 interfaces:
   consumes:
-  - local-authorized CPV-2010 microdata tables
-  - explicit Census geography identity input
+  - artifact:research.census-frame@1
   - optional exact population-by-department release for target-year sampling
+  - local-authorized CPV-2010 CSV tables only through the frame-build compatibility interface
   produces:
+  - artifact:research.census-frame@1
+  - artifact:research.census-target-year-sample@2
   - artifact:research.census-sample@1
 upstream:
 - repo.argentina-geography
-# Demographic source owner is intentionally unresolved until one exact target-year product is pinned.
+- repo.argentina-censo2022-rxdb
 downstream:
 - repo.encuestador-de-hogares
 - repo.indice-pobreza-uba
 canonical_commands:
-- name: produce-sample-release
-  command: python -m censo_sampler.cli release <options>
-  output: research.census-sample/v1
-- name: verify-sample-release
-  command: python -m censo_sampler.cli check-release <release-dir>
+- name: build-cpv2010-frame
+  command: censo-sampler frame build-2010 <options>
+  output: research.census-frame/v1
+- name: verify-census-frame
+  command: censo-sampler frame check <frame-dir>
+  output: validated research.census-frame/v1
+- name: produce-vintage-neutral-sample
+  command: censo-sampler sample <options>
+  output: research.census-target-year-sample/v2
+- name: verify-v2-sample
+  command: censo-sampler check-release-v2 <release-dir>
+  output: validated research.census-target-year-sample/v2
 generated_paths:
 - data/censo_samples/
 - releases/
@@ -49,19 +63,27 @@ generated_paths:
 scientific_invariants:
 - household is the primary sampling unit for the current poverty/inference use case
 - all persons belonging to a selected household remain linked to that household
+- sampling decisions are defined by selected keys before substantive Census payload materialization
+- Census feature projection does not belong to the sampler
 - target-year sampling may alter department selection probabilities but does not change the Census frame vintage
 - target-year department population information changes geographic composition only; within-department demographic and socioeconomic distributions remain donor-frame assumptions
 - selection_probability, design inverse-probability weight and downstream analysis_weight are distinct semantics
 - no downstream consumer may infer a target-year analysis weight from a generic sample_weight field
+- target year is excluded from the deterministic household score so one donor frame uses common random ordering across target years
 verification:
-  status: fixture-implemented-target-year-method-pending
-  last_verified: '2026-08-04'
-  command: make check && make test && make sample-release-fixture
+  status: vintage-neutral-fixture-green-real-data-materialization-pending
+  last_verified: '2026-09-02'
+  command: make check
+  evidence:
+  - CPV-2010 frame builder and deep validator pass fixture acceptance
+  - new frame-based sampler reproduces historical streaming CPV-2010 household/person decisions and probabilities for 2024 and 2025
+  - synthetic CPV-2022-shaped frame passes the same sampler/release-v2 path without feature-specific branches
+  - Python 3.10 and 3.12 CI is green
   unknowns:
-  - exact authorized local CPV-2010 source identity for each real release
-  - final geography binding used by each real release
-  - exact governed population-by-department source for any target-year run
-  - current release code still overloads weight semantics and does not yet constitute the approved target-year household-sampling method
+  - exact authorized local CPV-2010 frame identity and scale characteristics for the first real v2 release
+  - real CPV-2022 research.census-frame/v1 handoff from argentina-censo2022-rxdb
+  - exact small set, if any, of department code exceptions between the CPV-2022 frame and governed target-population parent
+  - downstream migration timing for consumers that currently require frame vintage 2010 / sample contract v1
 maintenance:
   cadence: active-development
   next_review: '2026-11-01'
