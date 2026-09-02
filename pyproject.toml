@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 censo-sampler = "censo_sampler.frontdoor:main"
+censo-sample-plan = "censo_sampler.plan_cli:main"
 
 [tool.setuptools]
 packages = ["censo_sampler"]
