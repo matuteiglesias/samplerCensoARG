@@ -15,6 +15,7 @@ on:
       - censo_sampler/frontdoor.py
       - censo_sampler/frame_contract.py
       - censo_sampler/frame_2010.py
+      - censo_sampler/geography_2010.py
       - censo_sampler/selection.py
       - censo_sampler/target_adapter.py
       - censo_sampler/planning.py
@@ -30,6 +31,7 @@ on:
       - tests/test_frame_cli.py
       - tests/test_frame_feature_independence.py
       - tests/test_frame_v2_robustness.py
+      - tests/test_frame_2010_native_geography.py
       - tests/test_sample_plan.py
   push:
     branches:
@@ -47,6 +49,7 @@ on:
       - censo_sampler/frontdoor.py
       - censo_sampler/frame_contract.py
       - censo_sampler/frame_2010.py
+      - censo_sampler/geography_2010.py
       - censo_sampler/selection.py
       - censo_sampler/target_adapter.py
       - censo_sampler/planning.py
@@ -62,6 +65,7 @@ on:
       - tests/test_frame_cli.py
       - tests/test_frame_feature_independence.py
       - tests/test_frame_v2_robustness.py
+      - tests/test_frame_2010_native_geography.py
       - tests/test_sample_plan.py
 
 permissions:
@@ -92,6 +96,7 @@ jobs:
           censo_sampler/frontdoor.py
           censo_sampler/frame_contract.py
           censo_sampler/frame_2010.py
+          censo_sampler/geography_2010.py
           censo_sampler/selection.py
           censo_sampler/target_adapter.py
           censo_sampler/planning.py
@@ -106,6 +111,7 @@ jobs:
           tests/test_frame_cli.py
           tests/test_frame_feature_independence.py
           tests/test_frame_v2_robustness.py
+          tests/test_frame_2010_native_geography.py
           tests/test_sample_plan.py
       - name: Verify legacy and vintage-neutral sampling boundaries
         run: >-
@@ -119,6 +125,7 @@ jobs:
           tests/test_frame_cli.py
           tests/test_frame_feature_independence.py
           tests/test_frame_v2_robustness.py
+          tests/test_frame_2010_native_geography.py
           tests/test_sample_plan.py
       - name: Exercise frame-based operational targets
         run: make frame-check sample-v2-check
