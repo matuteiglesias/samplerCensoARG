@@ -1,4 +1,4 @@
-"""Build a vintage-neutral Census frame from the legacy CPV-2010 CSV export."""
+"""Build a vintage-neutral Census frame from the legacy CPV-2010 export."""
 from __future__ import annotations
 
 import csv
@@ -11,9 +11,10 @@ from pathlib import Path
 from typing import Iterator
 
 from .frame_contract import FRAME_CONTRACT, CensusFrameError, canonical_json, sha256_file
+from .geography_2010 import inspect_geography_source, iter_normalized_geography
 
 SOURCE_FILES = ("VIVIENDA.csv", "HOGAR.csv", "PERSONA.csv")
-BUILDER_VERSION = "cpv2010-csv-parquet/v1"
+BUILDER_VERSION = "cpv2010-csv-parquet/v2"
 
 
 def _dialect(path: Path):
@@ -99,13 +100,27 @@ def _payload_rows(path: Path, table: str) -> Iterator[dict[str, object]]:
         yield out
 
 
+def _default_geography(source: Path) -> Path:
+    for candidate in (source / "GEO.parquet", source / "GEOGRAPHY.csv"):
+        if candidate.is_file():
+            return candidate
+    return source / "GEOGRAPHY.csv"
+
+
 def build_cpv2010_frame(
     databasepath: Path,
     output_root: Path,
     *,
     geography_path: Path | None = None,
 ) -> Path:
-    """Create an immutable full-payload ``research.census-frame/v1`` release."""
+    """Create an immutable full-payload ``research.census-frame/v1`` release.
+
+    The historical Census tables remain CSV inputs. Geography may be either the
+    retrofit fixture ``GEOGRAPHY.csv`` or the user's actual historical
+    ``GEO.parquet``.  The latter is interpreted through the stable source fields
+    ``RADIO_REF_ID``, ``IDRADIO`` and ``IDDPTO``; integer codes are restored to
+    their canonical nine- and five-digit zero-padded forms.
+    """
     source = Path(databasepath).expanduser().resolve()
     output_root = Path(output_root).expanduser().resolve()
     missing = [name for name in SOURCE_FILES if not (source / name).is_file()]
@@ -114,7 +129,7 @@ def build_cpv2010_frame(
     geography = (
         Path(geography_path).expanduser().resolve()
         if geography_path is not None
-        else source / "GEOGRAPHY.csv"
+        else _default_geography(source)
     )
     if not geography.is_file():
         raise CensusFrameError("missing_geography_crosswalk")
@@ -125,11 +140,7 @@ def build_cpv2010_frame(
     _require(fields["VIVIENDA.csv"], {"VIVIENDA_REF_ID", "RADIO_REF_ID"}, "VIVIENDA")
     _require(fields["HOGAR.csv"], {"HOGAR_REF_ID", "VIVIENDA_REF_ID"}, "HOGAR")
     _require(fields["PERSONA.csv"], {"PERSONA_REF_ID", "HOGAR_REF_ID"}, "PERSONA")
-    _require(
-        set(_csv_fields(geography)),
-        {"RADIO_REF_ID", "radio_2010_id", "department_2010_id"},
-        "GEOGRAPHY",
-    )
+    geography_profile = inspect_geography_source(geography)
 
     source_meta = {
         name: {
@@ -141,6 +152,8 @@ def build_cpv2010_frame(
     geography_meta = {
         "sha256": sha256_file(geography),
         "size_bytes": geography.stat().st_size,
+        "path_name": geography.name,
+        **geography_profile,
     }
     identity = {
         "contract": FRAME_CONTRACT,
@@ -149,6 +162,7 @@ def build_cpv2010_frame(
         "census_vintage": 2010,
         "sources": {name: meta["sha256"] for name, meta in source_meta.items()},
         "geography": geography_meta["sha256"],
+        "geography_semantics": geography_profile,
         "department_alignment_policy": "assume-code-identity/v1",
     }
     digest = hashlib.sha256(
@@ -187,7 +201,7 @@ def build_cpv2010_frame(
                     "INSERT INTO geo(radio,canonical_radio,dept) VALUES (?,?,?)",
                     (
                         (row["RADIO_REF_ID"], row["radio_2010_id"], row["department_2010_id"])
-                        for row in _iter_rows(geography)
+                        for row in iter_normalized_geography(geography)
                     ),
                 )
                 conn.executemany(
@@ -327,6 +341,8 @@ def build_cpv2010_frame(
                 "frame_dwelling_id": "VIVIENDA_REF_ID",
                 "frame_household_id": "HOGAR_REF_ID",
                 "frame_person_id": "PERSONA_REF_ID",
+                "radio_id": str(geography_profile["radio_field"]),
+                "department_id": str(geography_profile["department_field"]),
             },
             "counts": {
                 "dwellings": written_viv,
@@ -340,6 +356,7 @@ def build_cpv2010_frame(
             "limitations": [
                 "Department code identity is provisionally assumed across Census vintages and target-population parents; mismatches must be surfaced by the sampler.",
                 "The frame preserves source Census variables but does not define EPH semantic mappings.",
+                "Legacy integer IDDPTO/IDRADIO geography codes are interpreted as zero-padded five-/nine-digit Census codes when the native GEO.parquet is used.",
             ],
         }
         (work / "manifest.json").write_text(canonical_json(manifest), encoding="utf-8")
