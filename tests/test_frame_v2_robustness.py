@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 
@@ -25,6 +26,10 @@ def _target(path: Path) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def test_selection_is_independent_of_household_row_order() -> None:
@@ -111,6 +116,33 @@ def test_sample_hash_tampering_fails_closed(tmp_path: Path) -> None:
     membership.write_bytes(membership.read_bytes() + b"tamper")
     with pytest.raises(SampleReleaseV2Error, match="sample_v2_artifact_hash_mismatch"):
         validate_sample_release_v2(release)
+
+
+def test_governed_target_parent_hash_mismatch_fails_before_sampling(tmp_path: Path) -> None:
+    frame = build_cpv2010_frame(FIXTURE, tmp_path / "frames")
+    parent = tmp_path / "target-parent"
+    parent.mkdir()
+    payload = _target(parent / "target_population.csv")
+    manifest = {
+        "release_id": "target-fixture-v1",
+        "artifacts": {
+            "target_population.csv": {
+                "sha256": _sha256(payload),
+                "size_bytes": payload.stat().st_size,
+            }
+        },
+    }
+    (parent / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    payload.write_text(payload.read_text(encoding="utf-8") + "06001,2024,1\n", encoding="utf-8")
+
+    with pytest.raises(SampleReleaseV2Error, match="target_population_payload_hash_mismatch"):
+        build_sample_release_v2(
+            frame,
+            tmp_path / "samples",
+            target_population=parent,
+            target_year=2024,
+            fraction=0.5,
+        )
 
 
 def test_frame_deep_check_rejects_manifest_count_drift(tmp_path: Path) -> None:
