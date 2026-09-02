@@ -25,6 +25,7 @@ on:
       - tests/test_frame_v2.py
       - tests/test_frame_v2_parity.py
       - tests/test_frame_cli.py
+      - tests/test_frame_feature_independence.py
   push:
     branches:
       - main
@@ -51,6 +52,7 @@ on:
       - tests/test_frame_v2.py
       - tests/test_frame_v2_parity.py
       - tests/test_frame_cli.py
+      - tests/test_frame_feature_independence.py
 
 permissions:
   contents: read
@@ -90,6 +92,7 @@ jobs:
           tests/test_frame_v2.py
           tests/test_frame_v2_parity.py
           tests/test_frame_cli.py
+          tests/test_frame_feature_independence.py
       - name: Verify legacy and vintage-neutral sampling boundaries
         run: >-
           pytest -q
@@ -100,3 +103,4 @@ jobs:
           tests/test_frame_v2.py
           tests/test_frame_v2_parity.py
           tests/test_frame_cli.py
+          tests/test_frame_feature_independence.py
