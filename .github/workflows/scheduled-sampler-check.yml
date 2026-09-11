@@ -1,24 +1,49 @@
-name: Scheduled sampler contract check
+name: Weekly sampler contract pulse
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - .github/workflows/scheduled-sampler-check.yml
+      - .github/workflows/target-year-sampling-ci.yml
       - Makefile
       - pyproject.toml
+      - censo_sampler/target_year.py
+      - censo_sampler/streaming_target_year.py
+      - censo_sampler/target_population.py
+      - censo_sampler/governed_target_year.py
+      - censo_sampler/donor_frame.py
+      - censo_sampler/frame_contract.py
+      - censo_sampler/frame_2010.py
+      - censo_sampler/geography_2010.py
+      - censo_sampler/selection.py
+      - censo_sampler/target_adapter.py
+      - censo_sampler/planning.py
+      - censo_sampler/release_v2.py
+      - data/info/proy_pop200125.csv
+      - tests/test_target_year_sampling.py
+      - tests/test_streaming_target_year.py
+      - tests/test_target_population_parent.py
+      - tests/test_donor_frame_lock.py
+      - tests/test_frame_v2.py
+      - tests/test_frame_v2_parity.py
+      - tests/test_frame_feature_independence.py
+      - tests/test_frame_v2_robustness.py
+      - tests/test_frame_2010_native_geography.py
+      - tests/test_sample_plan.py
   schedule:
-    - cron: "47 11 * * 2"
+    # Tuesday: sampler first, then semantic-plane pulse 30 minutes later.
+    - cron: "17 11 * * 2"
 
 permissions:
   contents: read
 
 concurrency:
-  group: scheduled-sampler-contract-check
+  group: weekly-sampler-contract-pulse
   cancel-in-progress: false
 
 jobs:
-  check:
+  target-year-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -30,19 +55,35 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install package and test runner
-        run: python -m pip install -e . pytest
+      - name: Install bounded test tools
+        run: python -m pip install pytest ruff pyarrow
 
-      - name: Run deterministic sample-release fixture and validation
-        run: make check
+      - name: Verify governed target-year sampling boundary
+        run: >-
+          pytest -q
+          tests/test_target_year_sampling.py
+          tests/test_streaming_target_year.py
+          tests/test_target_population_parent.py
+          tests/test_donor_frame_lock.py
+          tests/test_frame_v2.py
+          tests/test_frame_v2_parity.py
+          tests/test_frame_feature_independence.py
+          tests/test_frame_v2_robustness.py
+          tests/test_frame_2010_native_geography.py
+          tests/test_sample_plan.py
 
-      - name: Report maturity boundary
+      - name: Exercise governed frame and sample-v2 release fixtures
+        run: make frame-check sample-v2-check
+
+      - name: Report freshness boundary
         if: always()
         run: |
           {
-            echo "## Scheduled sampler check"
+            echo "## Weekly sampler contract pulse"
             echo
-            echo "Green here proves the deterministic sample identity/release fixture remains executable. It does **not** claim that the governed target-year donor-mass/target-mass implementation or exact demographic parent from issue #7 is complete."
+            echo "A green run proves the current target-year department-stratified sampling, donor-frame identity, household membership, weight-separation and research.census-target-year-sample/v2 release contracts remain executable."
             echo
-            echo "The eventual mature scheduled job should replace the fixture-only refresh with one exact real target-year release once #7 closes."
+            echo "Hosted CI deliberately does **not** claim to rebuild the large locally materialized CPV2010 target-year sample: the immutable donor/sample data root is not yet a durable GitHub-hosted parent. The scheduled pulse therefore protects the scientific contract without inventing a cloud data source."
+            echo
+            echo "Downstream jobs may consume an already-governed sample identity; publication of a portable real sample parent is the remaining step before this job can become a true remote sample refresher."
           } >> "$GITHUB_STEP_SUMMARY"
