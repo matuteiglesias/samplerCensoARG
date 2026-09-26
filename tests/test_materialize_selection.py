@@ -131,3 +131,31 @@ def test_cli_materialize_selection_uses_existing_fixed_selection(
     assert child.is_dir()
     assert validate_sample_release_v2(child)["materialization"] == "full-payload"
     assert "P03" in pq.read_schema(child / "persona.parquet").names
+
+
+def test_normal_full_payload_records_frame_to_child_schema_custody(
+    tmp_path: Path,
+) -> None:
+    frame = build_cpv2010_frame(
+        FIXTURE,
+        tmp_path / "frames",
+        geography_path=FIXTURE / "GEOGRAPHY.csv",
+    )
+    child = build_sample_release_v2(
+        frame,
+        tmp_path / "samples",
+        target_population=_target(tmp_path / "target.csv"),
+        target_year=2024,
+        fraction=0.5,
+        seed=20260831,
+        materialization="full-payload",
+    )
+    manifest = json.loads((child / "manifest.json").read_text())
+    custody = manifest["payload_schema_custody"]
+    for name in ("vivienda.parquet", "hogar.parquet", "persona.parquet"):
+        assert custody[name]["frame_payload"] == custody[name]["materialized_payload"]
+    assert "P03" in {
+        field["name"]
+        for field in custody["persona.parquet"]["materialized_payload"]["fields"]
+    }
+    assert validate_sample_release_v2(child)["status"] == "valid"
