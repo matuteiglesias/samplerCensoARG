@@ -20,6 +20,7 @@ CONTRACT = "publicdata.argentina-department-population-target/v1"
 SOURCE_GIT_BLOB_SHA1 = "2bfa46dc782d70399b5b749e1d71e38887dec5ca"
 SOURCE_REPO_PATH = "data/info/proy_pop200125.csv"
 TARGET_YEARS = (2022, 2023, 2024, 2025)
+LEGACY_TARGET_YEARS = (2024, 2025)
 CANONICAL_FIELDS = [
     "department_2010_id",
     "department_name",
@@ -261,6 +262,7 @@ def validate_target_population_parent(root: Path) -> dict[str, object]:
     if artifact.get("sha256") != _sha256(population_path):
         raise TargetPopulationError("target_population_payload_hash_mismatch")
     coverage = manifest.get("coverage") or {}
-    if coverage.get("target_years") != list(TARGET_YEARS):
+    covered_years = tuple(coverage.get("target_years") or ())
+    if covered_years not in {TARGET_YEARS, LEGACY_TARGET_YEARS}:
         raise TargetPopulationError("target_population_year_coverage_mismatch")
     return manifest
