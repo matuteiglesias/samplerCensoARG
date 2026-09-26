@@ -1,6 +1,6 @@
 # Vintage-neutral retrofit implementation status
 
-Date: 2026-09-02
+Date: 2026-09-26
 
 This file maps `docs/CENSUS_VINTAGE_NEUTRAL_AGENT_PACKETS.md` to actual repository state so future agents do not repeat completed work or confuse local-data gates with missing software.
 
@@ -113,17 +113,19 @@ A separate fixture contains no sex/age/EPH-facing variables at all, proving thos
 
 ## WP-R11 — Define 2022 frame handoff
 
-**DONE IN SAMPLER / UPSTREAM PRODUCER PENDING REAL DATA**
+**DONE / UPSTREAM PRODUCER IMPLEMENTED AND REAL-EXTRACTION QUALIFIED**
 
 See `docs/CPV2022_FRAME_HANDOFF.md`.
 
-The real producer belongs in `argentina-censo2022-rxdb` and maps validated RXDB relational output to `research.census-frame/v1`.
+The real producer lives in `argentina-censo2022-rxdb`, where bounded VP extraction
+and the `research.census-frame/v1` adapter are implemented. The sampler consumes
+only that neutral frame contract.
 
 ## WP-R12 — Real bounded CPV-2022 proof
 
-**BLOCKED ONLY ON LOCAL DATA/RUNTIME**
+**PARTIAL: UPSTREAM REAL EXTRACTION QUALIFIED / SAMPLER-SIDE HANDOFF PENDING**
 
-Expected first gate:
+Permanent first cross-repository gate:
 
 ```text
 RADIO 061471101
@@ -132,7 +134,9 @@ RADIO 061471101
 137 PERSONA
 ```
 
-The sampler-side software path is already implemented. Operator must provide the real frame produced upstream.
+The upstream real VP slice is qualified. The remaining proof is to materialize
+that slice through the upstream frame adapter and run the sampler's independent
+frame checker + target-year sample/release path over the resulting exact frame.
 
 ## WP-R13 — README / SYSTEM / lifecycle retrofit
 
@@ -169,11 +173,16 @@ The target-year/frame workflow runs on Python 3.10 and 3.12 and exercises:
 
 # Remaining work category
 
-The remaining critical-path work is no longer sampler architecture invention. It is **real-source materialization and qualification**:
+The remaining critical-path work is no longer sampler architecture invention.
 
 ```text
-real CPV-2010 CSV → frame → v2 sample
-real CPV-2022 RXDB → upstream relational extract → frame → same v2 sample
+current CPV-2010 governed frame/sample → preserve and verify
+qualified CPV-2022 bounded extract → upstream frame adapter → sampler independent check/sample
+canonical CPV-2022 national source → national frame → same sampler path
 ```
+
+The CPV-2022 extraction/adapter software is upstream and already bounded-real
+qualified; the missing step here is cross-repository custody/materialization
+proof and eventual national scale.
 
 See `docs/HUMAN_OPERATOR_QUEUE.md` for the bounded keyboard-session work.
