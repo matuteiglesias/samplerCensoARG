@@ -1,0 +1,32 @@
+name: eph-agglomerate-handoff
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feat/eph-agglomerate-handoff"]
+    paths:
+      - "censo_sampler/eph_agglomerate_handoff.py"
+      - "tests/test_eph_agglomerate_handoff.py"
+      - "docs/EPH_AGGLOMERATE_HANDOFF_V1.md"
+      - ".github/workflows/eph-agglomerate-handoff.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "censo_sampler/eph_agglomerate_handoff.py"
+      - "tests/test_eph_agglomerate_handoff.py"
+      - "docs/EPH_AGGLOMERATE_HANDOFF_V1.md"
+      - ".github/workflows/eph-agglomerate-handoff.yml"
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: python -m pip install -e . pytest
+      - name: Prove lossless geography sidecar
+        run: python -m pytest -q tests/test_eph_agglomerate_handoff.py
