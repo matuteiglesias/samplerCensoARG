@@ -287,7 +287,7 @@ def materialize(
             "manifest_sha256": a7_manifest_sha,
             "direct_mapping_sha256": (
                 (a7_manifest.get("run") or {}).get("parameters") or {}
-            ).get("direct_mapping_relation_sha256"),
+            ).get("radio_to_agglomerate_relation_sha256"),
         },
         "join": {
             "left_field": "selection.radio_id",
