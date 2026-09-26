@@ -20,6 +20,7 @@ from .release_v2 import validate_sample_release_v2
 
 HANDOFF_CONTRACT = "research.census-eph-agglomerate-handoff/v1"
 A7_DATASET_ID = "arggeo.indec.eph.census2010.radio_frame"
+G1_DATASET_ID = "arggeo.indec.eph.census2010.agglomerate-footprint"
 
 
 class EphAgglomerateHandoffError(ValueError):
@@ -53,6 +54,72 @@ def _load_a7_frame(root: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
         raise EphAgglomerateHandoffError("a7_frame_hash_mismatch")
     frame = pd.read_parquet(frame_path)
     return frame, manifest
+
+
+def _load_g1_relation(root: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
+    root = Path(root).expanduser().resolve()
+    try:
+        manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise EphAgglomerateHandoffError("g1_manifest_missing_or_invalid") from exc
+    dataset = manifest.get("dataset") or {}
+    if dataset.get("dataset_id") != G1_DATASET_ID:
+        raise EphAgglomerateHandoffError("unexpected_g1_dataset")
+    membership = manifest.get("membership") or {}
+    relation_name = membership.get("artifact")
+    expected_hash = membership.get("content_sha256")
+    if not isinstance(relation_name, str) or not isinstance(expected_hash, str):
+        raise EphAgglomerateHandoffError("g1_membership_artifact_missing")
+    relation_path = root / relation_name
+    if not relation_path.is_file() or sha256_file(relation_path) != expected_hash:
+        raise EphAgglomerateHandoffError("g1_membership_hash_mismatch")
+    frame = pd.read_parquet(relation_path)
+    required = {
+        "radio_2010_id",
+        "department_2010_id",
+        "province_2010_id",
+        "eph_agglomerate_id",
+    }
+    _require(frame, required, "g1_relation")
+    if frame["radio_2010_id"].duplicated().any():
+        raise EphAgglomerateHandoffError("g1_radio_identity_not_unique")
+    if membership.get("spatial_inference") is not False:
+        raise EphAgglomerateHandoffError("g1_membership_must_be_direct")
+    return frame, manifest
+
+
+def _load_geography_parent(
+    *,
+    a7_release: Path | None = None,
+    g1_release: Path | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any], dict[str, Any]]:
+    if (a7_release is None) == (g1_release is None):
+        raise EphAgglomerateHandoffError(
+            "exactly_one_of_a7_release_or_g1_release_is_required"
+        )
+    if g1_release is not None:
+        frame, manifest = _load_g1_relation(g1_release)
+        membership = manifest.get("membership") or {}
+        provenance = {
+            "dataset_id": G1_DATASET_ID,
+            "release_version": (manifest.get("dataset") or {}).get("version"),
+            "manifest_sha256": sha256_file(g1_release / "manifest.json"),
+            "direct_mapping_sha256": membership.get("relation_sha256"),
+            "relation_artifact_sha256": membership.get("content_sha256"),
+            "parent_kind": "G1_first_class_agglomerate",
+        }
+        return frame, manifest, provenance
+    frame, manifest = _load_a7_frame(a7_release)
+    provenance = {
+        "dataset_id": A7_DATASET_ID,
+        "release_version": (manifest.get("dataset") or {}).get("version"),
+        "manifest_sha256": sha256_file(a7_release / "manifest.json"),
+        "direct_mapping_sha256": (
+            (manifest.get("run") or {}).get("parameters") or {}
+        ).get("radio_to_agglomerate_relation_sha256"),
+        "parent_kind": "A7_legacy_radio_frame",
+    }
+    return frame, manifest, provenance
 
 
 def derive_household_agglomerates(
@@ -214,11 +281,18 @@ def derive_household_agglomerates(
 
 def materialize(
     sample_release: Path,
-    a7_release: Path,
     output: Path,
+    *,
+    a7_release: Path | None = None,
+    g1_release: Path | None = None,
 ) -> Path:
     sample_release = Path(sample_release).expanduser().resolve()
-    a7_release = Path(a7_release).expanduser().resolve()
+    a7_release = (
+        Path(a7_release).expanduser().resolve() if a7_release is not None else None
+    )
+    g1_release = (
+        Path(g1_release).expanduser().resolve() if g1_release is not None else None
+    )
     output = Path(output).expanduser().resolve()
     checked = validate_sample_release_v2(sample_release)
     if checked["frame_vintage"] != 2010:
@@ -230,8 +304,11 @@ def materialize(
     output.mkdir(parents=True, exist_ok=True)
 
     selection = pd.read_parquet(sample_release / "selection.parquet")
-    a7_frame, a7_manifest = _load_a7_frame(a7_release)
-    households, qa = derive_household_agglomerates(selection, a7_frame)
+    geography_frame, geography_manifest, geography_parent = _load_geography_parent(
+        a7_release=a7_release,
+        g1_release=g1_release,
+    )
+    households, qa = derive_household_agglomerates(selection, geography_frame)
 
     household_path = output / "household_geography.parquet"
     pq.write_table(pa.Table.from_pandas(households, preserve_index=False), household_path)
@@ -260,7 +337,7 @@ def materialize(
     (output / "qa.json").write_text(canonical_json(qa), encoding="utf-8")
 
     sample_manifest_sha = sha256_file(sample_release / "manifest.json")
-    a7_manifest_sha = sha256_file(a7_release / "manifest.json")
+    geography_manifest_sha = geography_parent["manifest_sha256"]
     artifacts = {}
     for name in (
         "household_geography.parquet",
@@ -281,19 +358,12 @@ def materialize(
             "manifest_sha256": sample_manifest_sha,
             "frame_vintage": checked["frame_vintage"],
         },
-        "geography_parent": {
-            "dataset_id": A7_DATASET_ID,
-            "release_version": (a7_manifest.get("dataset") or {}).get("version"),
-            "manifest_sha256": a7_manifest_sha,
-            "direct_mapping_sha256": (
-                (a7_manifest.get("run") or {}).get("parameters") or {}
-            ).get("radio_to_agglomerate_relation_sha256"),
-        },
+        "geography_parent": geography_parent,
         "join": {
             "left_field": "selection.radio_id",
-            "right_field": "A7.frame.radio_2010_id",
+            "right_field": "governed_geography_relation.radio_2010_id",
             "mode": "left_many_to_one",
-            "membership_semantics": "direct_official_A7_relation",
+            "membership_semantics": "direct_official_A7_relation_exposed_by_G1_or_A7",
             "unmatched_policy": "preserve_row_and_set_eph_agglomerate_id_null",
         },
         "scientific_scope": {
@@ -365,13 +435,22 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     build = sub.add_parser("materialize")
     build.add_argument("--sample-release", type=Path, required=True)
-    build.add_argument("--a7-release", type=Path, required=True)
+    parent_group = build.add_mutually_exclusive_group(required=True)
+    parent_group.add_argument("--a7-release", type=Path)
+    parent_group.add_argument("--g1-release", type=Path)
     build.add_argument("--output", type=Path, required=True)
     verify = sub.add_parser("verify")
     verify.add_argument("--release", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "materialize":
-        print(materialize(args.sample_release, args.a7_release, args.output))
+        print(
+            materialize(
+                args.sample_release,
+                args.output,
+                a7_release=args.a7_release,
+                g1_release=args.g1_release,
+            )
+        )
     else:
         print(json.dumps(verify_handoff(args.release), indent=2, sort_keys=True))
     return 0
