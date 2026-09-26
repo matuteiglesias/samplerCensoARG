@@ -71,19 +71,20 @@ scientific_invariants:
 - no downstream consumer may infer a target-year analysis weight from a generic sample_weight field
 - target year is excluded from the deterministic household score so one donor frame uses common random ordering across target years
 verification:
-  status: vintage-neutral-fixture-green-real-data-materialization-pending
-  last_verified: '2026-09-02'
+  status: vintage-neutral-real-cpv2010-in-use-cpv2022-handoff-bounded-upstream-qualified
+  last_verified: '2026-09-26'
   command: make check
   evidence:
   - CPV-2010 frame builder and deep validator pass fixture acceptance
   - new frame-based sampler reproduces historical streaming CPV-2010 household/person decisions and probabilities for 2024 and 2025
   - synthetic CPV-2022-shaped frame passes the same sampler/release-v2 path without feature-specific branches
+  - upstream argentina-censo2022-rxdb has a real-qualified VP extractor and a research.census-frame/v1 adapter for bounded RADIO slices
   - Python 3.10 and 3.12 CI is green
   unknowns:
-  - exact authorized local CPV-2010 frame identity and scale characteristics for the first real v2 release
-  - real CPV-2022 research.census-frame/v1 handoff from argentina-censo2022-rxdb
+  - independent sampler-side check/sample proof over one bounded real CPV-2022 frame
+  - national CPV-2022 frame materialization against the preferred corrected source release
   - exact small set, if any, of department code exceptions between the CPV-2022 frame and governed target-population parent
-  - downstream migration timing for consumers that currently require frame vintage 2010 / sample contract v1
+  - downstream scientific adjudication of CPV-2022 semantic features
 maintenance:
   cadence: active-development
   next_review: '2026-11-01'
