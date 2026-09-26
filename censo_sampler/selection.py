@@ -20,7 +20,7 @@ def household_score(seed: int, frame_household_id: str, department_id: str) -> f
     vintage-neutral migration can prove exact scientific parity. Frame identity
     namespaces *sample IDs* and release identity, not the pseudo-random score.
     Target year is deliberately absent, preserving common random numbers across
-    2024/2025 for one donor frame.
+    2022-2025 for one donor frame.
     """
     payload = f"{seed}\x1f{frame_household_id}\x1f{department_id}".encode()
     return int.from_bytes(hashlib.sha256(payload).digest(), "big") / 2**256
