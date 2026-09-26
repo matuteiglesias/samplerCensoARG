@@ -20,6 +20,7 @@ on:
       - censo_sampler/target_adapter.py
       - censo_sampler/planning.py
       - censo_sampler/release_v2.py
+      - censo_sampler/materialize_selection.py
       - data/info/proy_pop200125.csv
       - tests/test_target_year_sampling.py
       - tests/test_streaming_target_year.py
@@ -31,6 +32,7 @@ on:
       - tests/test_frame_v2_robustness.py
       - tests/test_frame_2010_native_geography.py
       - tests/test_sample_plan.py
+      - tests/test_materialize_selection.py
   schedule:
     # Tuesday: sampler first, then semantic-plane pulse 30 minutes later.
     - cron: "17 11 * * 2"
@@ -71,6 +73,7 @@ jobs:
           tests/test_frame_v2_robustness.py
           tests/test_frame_2010_native_geography.py
           tests/test_sample_plan.py
+          tests/test_materialize_selection.py
 
       - name: Exercise governed frame and sample-v2 release fixtures
         run: make frame-check sample-v2-check

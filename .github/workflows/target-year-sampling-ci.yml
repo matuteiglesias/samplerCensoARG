@@ -21,6 +21,7 @@ on:
       - censo_sampler/planning.py
       - censo_sampler/plan_cli.py
       - censo_sampler/release_v2.py
+      - censo_sampler/materialize_selection.py
       - data/info/proy_pop200125.csv
       - tests/test_target_year_sampling.py
       - tests/test_streaming_target_year.py
@@ -33,6 +34,7 @@ on:
       - tests/test_frame_v2_robustness.py
       - tests/test_frame_2010_native_geography.py
       - tests/test_sample_plan.py
+      - tests/test_materialize_selection.py
   push:
     branches:
       - main
@@ -55,6 +57,7 @@ on:
       - censo_sampler/planning.py
       - censo_sampler/plan_cli.py
       - censo_sampler/release_v2.py
+      - censo_sampler/materialize_selection.py
       - data/info/proy_pop200125.csv
       - tests/test_target_year_sampling.py
       - tests/test_streaming_target_year.py
@@ -67,6 +70,7 @@ on:
       - tests/test_frame_v2_robustness.py
       - tests/test_frame_2010_native_geography.py
       - tests/test_sample_plan.py
+      - tests/test_materialize_selection.py
 
 permissions:
   contents: read
@@ -102,6 +106,7 @@ jobs:
           censo_sampler/planning.py
           censo_sampler/plan_cli.py
           censo_sampler/release_v2.py
+          censo_sampler/materialize_selection.py
           tests/test_target_year_sampling.py
           tests/test_streaming_target_year.py
           tests/test_target_population_parent.py
@@ -113,6 +118,7 @@ jobs:
           tests/test_frame_v2_robustness.py
           tests/test_frame_2010_native_geography.py
           tests/test_sample_plan.py
+          tests/test_materialize_selection.py
       - name: Verify legacy and vintage-neutral sampling boundaries
         run: >-
           pytest -q
@@ -127,5 +133,6 @@ jobs:
           tests/test_frame_v2_robustness.py
           tests/test_frame_2010_native_geography.py
           tests/test_sample_plan.py
+          tests/test_materialize_selection.py
       - name: Exercise frame-based operational targets
         run: make frame-check sample-v2-check

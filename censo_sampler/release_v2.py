@@ -68,6 +68,34 @@ def _write_pylist(path: Path, rows: list[dict[str, Any]]) -> None:
     pq.write_table(table, path, compression="zstd")
 
 
+def _parquet_schema_record(path: Path) -> dict[str, Any]:
+    _, _, pq = _pa()
+    schema = pq.read_schema(path)
+    fields = [
+        {
+            "name": field.name,
+            "type": str(field.type),
+            "nullable": bool(field.nullable),
+        }
+        for field in schema
+    ]
+    encoded = json.dumps(fields, sort_keys=True, separators=(",", ":")).encode()
+    return {
+        "fields": fields,
+        "fingerprint_sha256": hashlib.sha256(encoded).hexdigest(),
+    }
+
+
+def _require_parquet_schema_parity(
+    source: Path, materialized: Path, name: str
+) -> dict[str, Any]:
+    parent = _parquet_schema_record(source)
+    child = _parquet_schema_record(materialized)
+    if parent != child:
+        raise SampleReleaseV2Error(f"materialized_payload_schema_mismatch:{name}")
+    return {"frame_payload": parent, "materialized_payload": child}
+
+
 def _filter_parquet(
     source: Path,
     destination: Path,
@@ -250,6 +278,7 @@ def build_sample_release_v2(
         _write_pylist(staging / "person_membership.parquet", person_membership)
 
         materialized_counts: dict[str, int] | None = None
+        payload_schema_custody: dict[str, Any] | None = None
         if materialization == "full-payload":
             materialized_counts = {
                 "viviendas": _filter_parquet(
@@ -275,6 +304,23 @@ def build_sample_release_v2(
                 raise SampleReleaseV2Error("materialized_household_count_mismatch")
             if materialized_counts["persons"] != len(person_membership):
                 raise SampleReleaseV2Error("materialized_person_count_mismatch")
+            payload_schema_custody = {
+                "vivienda.parquet": _require_parquet_schema_parity(
+                    frame_root / "payload/vivienda.parquet",
+                    staging / "vivienda.parquet",
+                    "vivienda.parquet",
+                ),
+                "hogar.parquet": _require_parquet_schema_parity(
+                    frame_root / "payload/hogar.parquet",
+                    staging / "hogar.parquet",
+                    "hogar.parquet",
+                ),
+                "persona.parquet": _require_parquet_schema_parity(
+                    frame_root / "payload/persona.parquet",
+                    staging / "persona.parquet",
+                    "persona.parquet",
+                ),
+            }
 
         selected_person_by_department: Counter[str] = Counter()
         selected_household_by_department: Counter[str] = Counter()
@@ -364,6 +410,7 @@ def build_sample_release_v2(
             },
             "department_alignment_policy": "assume-code-identity/v1",
             "materialization": materialization,
+            **({"payload_schema_custody": payload_schema_custody} if payload_schema_custody is not None else {}),
             "artifacts": artifacts,
             "qa": qa,
             "scientific_assumptions": [
@@ -414,14 +461,19 @@ def validate_sample_release_v2(root: Path) -> dict[str, Any]:
     )
     household_ids: set[str] = set()
     frame_households: set[str] = set()
+    frame_dwellings: set[str] = set()
     expected_members = 0
     for row in selections:
         sample_hh = str(row["sample_household_id"])
         frame_hh = str(row["frame_household_id"])
+        frame_dwelling = str(row["frame_dwelling_id"])
         if not sample_hh or sample_hh in household_ids or not frame_hh or frame_hh in frame_households:
             raise SampleReleaseV2Error("sample_v2_duplicate_household_identity")
         household_ids.add(sample_hh)
         frame_households.add(frame_hh)
+        if not frame_dwelling:
+            raise SampleReleaseV2Error("sample_v2_empty_frame_dwelling_identity")
+        frame_dwellings.add(frame_dwelling)
         p = float(row["selection_probability"])
         w = float(row["design_inverse_probability_weight"])
         if not (0 < p <= 1) or not math.isclose(w, 1 / p, rel_tol=1e-12, abs_tol=1e-12):
@@ -429,19 +481,24 @@ def validate_sample_release_v2(root: Path) -> dict[str, Any]:
         expected_members += int(row["household_person_count"])
 
     persons: set[str] = set()
+    frame_persons: set[str] = set()
     member_counts: Counter[str] = Counter()
     for row in _iter_parquet(
         root / "person_membership.parquet",
         ["sample_person_id", "frame_person_id", "sample_household_id", "frame_household_id"],
     ):
         sample_person = str(row["sample_person_id"])
+        frame_person = str(row["frame_person_id"])
         if not sample_person or sample_person in persons:
             raise SampleReleaseV2Error("sample_v2_duplicate_person_identity")
         if str(row["sample_household_id"]) not in household_ids:
             raise SampleReleaseV2Error("sample_v2_orphan_person_household")
         if str(row["frame_household_id"]) not in frame_households:
             raise SampleReleaseV2Error("sample_v2_orphan_frame_household")
+        if not frame_person or frame_person in frame_persons:
+            raise SampleReleaseV2Error("sample_v2_duplicate_or_empty_frame_person_identity")
         persons.add(sample_person)
+        frame_persons.add(frame_person)
         member_counts[str(row["frame_household_id"])] += 1
     if len(persons) != expected_members:
         raise SampleReleaseV2Error("sample_v2_incomplete_household_membership")
@@ -449,6 +506,61 @@ def validate_sample_release_v2(root: Path) -> dict[str, Any]:
     counts = qa.get("selected_counts") or {}
     if counts.get("households") != len(selections) or counts.get("persons") != len(persons):
         raise SampleReleaseV2Error("sample_v2_qa_count_mismatch")
+
+    if manifest.get("materialization") == "full-payload":
+        required_payload = ("vivienda.parquet", "hogar.parquet", "persona.parquet")
+        missing_payload = [name for name in required_payload if name not in artifacts]
+        if missing_payload:
+            raise SampleReleaseV2Error(
+                "sample_v2_full_payload_artifacts_missing:" + ",".join(missing_payload)
+            )
+        payload_households = {
+            str(row["frame_household_id"])
+            for row in _iter_parquet(
+                root / "hogar.parquet", ["frame_household_id"]
+            )
+        }
+        payload_dwellings = {
+            str(row["frame_dwelling_id"])
+            for row in _iter_parquet(
+                root / "vivienda.parquet", ["frame_dwelling_id"]
+            )
+        }
+        payload_persons = {
+            str(row["frame_person_id"])
+            for row in _iter_parquet(
+                root / "persona.parquet", ["frame_person_id", "frame_household_id"]
+            )
+        }
+        if payload_households != frame_households:
+            raise SampleReleaseV2Error("sample_v2_materialized_household_identity_mismatch")
+        if payload_dwellings != frame_dwellings:
+            raise SampleReleaseV2Error("sample_v2_materialized_dwelling_identity_mismatch")
+        if payload_persons != frame_persons:
+            raise SampleReleaseV2Error("sample_v2_materialized_person_identity_mismatch")
+
+        schema_custody = manifest.get("payload_schema_custody")
+        if schema_custody is not None:
+            if not isinstance(schema_custody, dict):
+                raise SampleReleaseV2Error("sample_v2_payload_schema_custody_invalid")
+            for name in required_payload:
+                record = schema_custody.get(name)
+                if not isinstance(record, dict):
+                    raise SampleReleaseV2Error(
+                        f"sample_v2_payload_schema_custody_missing:{name}"
+                    )
+                frame_schema = record.get("frame_payload")
+                materialized_schema = record.get("materialized_payload")
+                observed_schema = _parquet_schema_record(root / name)
+                if frame_schema != materialized_schema:
+                    raise SampleReleaseV2Error(
+                        f"sample_v2_payload_schema_parent_output_mismatch:{name}"
+                    )
+                if materialized_schema != observed_schema:
+                    raise SampleReleaseV2Error(
+                        f"sample_v2_payload_schema_manifest_mismatch:{name}"
+                    )
+
     semantics = manifest.get("weight_semantics") or {}
     if semantics.get("analysis_weight") is not None or semantics.get("generic_sample_weight") is not None:
         raise SampleReleaseV2Error("sample_v2_forbidden_analysis_weight")
