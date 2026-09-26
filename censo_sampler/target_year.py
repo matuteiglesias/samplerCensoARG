@@ -7,7 +7,7 @@ updates only department person mass through household selection probabilities:
 
 Households are the selection unit and every person in a selected household is
 retained.  The deterministic household score does not include target year, so
-2024 and 2025 releases use the same random ordering within each department.
+all supported target years use the same random ordering within each department.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from pathlib import Path
 
 CONTRACT = "research.census-target-year-sample/v1"
 ALGORITHM = "sha256-common-household-score/v1"
-TARGET_YEARS = {2024, 2025}
+TARGET_YEARS = {2022, 2023, 2024, 2025}
 SOURCE_FILES = ("VIVIENDA.csv", "HOGAR.csv", "PERSONA.csv")
 HOUSEHOLD_FIELDS = [
     "sample_household_id",
