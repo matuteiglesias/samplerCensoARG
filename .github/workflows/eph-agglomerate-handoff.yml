@@ -9,6 +9,13 @@ on:
       - "tests/test_eph_agglomerate_handoff.py"
       - "docs/EPH_AGGLOMERATE_HANDOFF_V1.md"
       - ".github/workflows/eph-agglomerate-handoff.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "censo_sampler/eph_agglomerate_handoff.py"
+      - "tests/test_eph_agglomerate_handoff.py"
+      - "docs/EPH_AGGLOMERATE_HANDOFF_V1.md"
+      - ".github/workflows/eph-agglomerate-handoff.yml"
 
 jobs:
   contract:
