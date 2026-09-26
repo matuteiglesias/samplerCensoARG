@@ -7,7 +7,7 @@ updates only department person mass through household selection probabilities:
 
 Households are the selection unit and every person in a selected household is
 retained.  The deterministic household score does not include target year, so
-2024 and 2025 releases use the same random ordering within each department.
+2022-2025 releases use the same random ordering within each department.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from pathlib import Path
 
 CONTRACT = "research.census-target-year-sample/v1"
 ALGORITHM = "sha256-common-household-score/v1"
-TARGET_YEARS = {2024, 2025}
+TARGET_YEARS = {2022, 2023, 2024, 2025}
 SOURCE_FILES = ("VIVIENDA.csv", "HOGAR.csv", "PERSONA.csv")
 HOUSEHOLD_FIELDS = [
     "sample_household_id",
@@ -93,7 +93,7 @@ def _unique(rows: list[dict[str, str]], key: str, table: str) -> None:
 
 def _score(seed: int, household_id: str, department_id: str) -> float:
     # Deliberately no target year: the same donor household has the same score
-    # in 2024 and 2025. Only p[d,y] changes.
+    # across every supported target year. Only p[d,y] changes.
     payload = f"{seed}\x1f{household_id}\x1f{department_id}".encode()
     return int.from_bytes(hashlib.sha256(payload).digest(), "big") / 2**256
 
