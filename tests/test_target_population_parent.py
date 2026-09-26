@@ -24,7 +24,7 @@ def _rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(stream))
 
 
-def test_exact_committed_indec_snapshot_builds_two_year_parent(tmp_path: Path) -> None:
+def test_exact_committed_indec_snapshot_builds_four_year_parent(tmp_path: Path) -> None:
     release = build_indec_2010_2025_target_parent(SOURCE, tmp_path / "parents")
     manifest = json.loads((release / "manifest.json").read_text(encoding="utf-8"))
     qa = json.loads((release / "qa.json").read_text(encoding="utf-8"))
@@ -33,10 +33,10 @@ def test_exact_committed_indec_snapshot_builds_two_year_parent(tmp_path: Path) -
     assert manifest["contract"] == CONTRACT
     assert manifest["status"] == "source_backed_snapshot"
     assert manifest["source_snapshot"]["git_blob_sha1"] == SOURCE_GIT_BLOB_SHA1
-    assert manifest["coverage"]["target_years"] == [2024, 2025]
+    assert manifest["coverage"]["target_years"] == [2022, 2023, 2024, 2025]
     assert manifest["coverage"]["mass_unit"] == "person"
-    assert {row["target_year"] for row in rows} == {"2024", "2025"}
-    assert len(rows) == 2 * qa["department_count"]
+    assert {row["target_year"] for row in rows} == {"2022", "2023", "2024", "2025"}
+    assert len(rows) == 4 * qa["department_count"]
     assert qa["unique_department_year"] is True
 
     values = {
@@ -66,6 +66,8 @@ def _governed_fixture_parent(tmp_path: Path) -> Path:
     population = root / "target_population.csv"
     population.write_text(
         "department_2010_id,department_name,target_year,target_person_mass\n"
+        "02001,A,2022,4\n50007,B,2022,2\n90084,C,2022,3\n94008,D,2022,1\n"
+        "02001,A,2023,5\n50007,B,2023,2\n90084,C,2023,3\n94008,D,2023,1\n"
         "02001,A,2024,4\n50007,B,2024,2\n90084,C,2024,3\n94008,D,2024,1\n"
         "02001,A,2025,6\n50007,B,2025,1\n90084,C,2025,4\n94008,D,2025,1\n",
         encoding="utf-8",
@@ -74,7 +76,7 @@ def _governed_fixture_parent(tmp_path: Path) -> Path:
     manifest = {
         "contract": CONTRACT,
         "release_id": "fixture-target-population-v1",
-        "coverage": {"target_years": [2024, 2025]},
+        "coverage": {"target_years": [2022, 2023, 2024, 2025]},
         "artifacts": {"target_population.csv": {"sha256": digest}},
     }
     (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
@@ -110,3 +112,27 @@ def test_governed_parent_payload_hash_mismatch_fails_closed(tmp_path: Path) -> N
 
     with pytest.raises(TargetPopulationError, match="target_population_payload_hash_mismatch"):
         validate_target_population_parent(parent)
+
+
+def test_legacy_2024_2025_parent_remains_valid(tmp_path: Path) -> None:
+    root = tmp_path / "legacy-parent"
+    root.mkdir()
+    population = root / "target_population.csv"
+    population.write_text(
+        "department_2010_id,department_name,target_year,target_person_mass\n"
+        "02001,A,2024,4\n"
+        "02001,A,2025,5\n",
+        encoding="utf-8",
+    )
+    digest = hashlib.sha256(population.read_bytes()).hexdigest()
+    manifest = {
+        "contract": CONTRACT,
+        "release_id": "legacy-target-population-v1",
+        "coverage": {"target_years": [2024, 2025]},
+        "artifacts": {"target_population.csv": {"sha256": digest}},
+    }
+    (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    checked = validate_target_population_parent(root)
+
+    assert checked["coverage"]["target_years"] == [2024, 2025]

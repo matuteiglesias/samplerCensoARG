@@ -104,7 +104,7 @@ def build_target_year_release_streaming(
     geography_path: Path | None = None,
     max_households: int | None = None,
 ) -> Path:
-    """Build one target-year release without materializing the donor frame in RAM."""
+    """Build one supported 2022-2025 target-year release without materializing the donor frame in RAM."""
     if target_year not in TARGET_YEARS:
         raise TargetYearSamplingError(
             f"target_year_must_be_one_of:{sorted(TARGET_YEARS)}"

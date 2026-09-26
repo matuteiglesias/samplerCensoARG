@@ -4,7 +4,7 @@ The repository already contains ``data/info/proy_pop200125.csv``. Historical
 notebook evidence identifies that exact file family with INDEC's *Estimaciones
 de población por sexo, departamento y año calendario 2010-2025* (Análisis
 Demográfico 38). This module does not scrape or reinterpret the PDF. It turns
-the exact committed bytes into a small, immutable 2024/2025 consumer parent
+the exact committed bytes into a small, immutable 2022-2025 consumer parent
 and fails if those source bytes drift.
 """
 from __future__ import annotations
@@ -19,7 +19,8 @@ from pathlib import Path
 CONTRACT = "publicdata.argentina-department-population-target/v1"
 SOURCE_GIT_BLOB_SHA1 = "2bfa46dc782d70399b5b749e1d71e38887dec5ca"
 SOURCE_REPO_PATH = "data/info/proy_pop200125.csv"
-TARGET_YEARS = (2024, 2025)
+TARGET_YEARS = (2022, 2023, 2024, 2025)
+LEGACY_TARGET_YEARS = (2024, 2025)
 CANONICAL_FIELDS = [
     "department_2010_id",
     "department_name",
@@ -121,7 +122,7 @@ def _write_csv(path: Path, rows: list[dict[str, str]]) -> None:
 
 
 def build_indec_2010_2025_target_parent(source_path: Path, output_root: Path) -> Path:
-    """Materialize an immutable 2024/2025 parent from the exact committed snapshot."""
+    """Materialize an immutable 2022-2025 parent from the exact committed snapshot."""
     source = Path(source_path).expanduser().resolve()
     output_root = Path(output_root).expanduser().resolve()
     if not source.is_file():
@@ -261,6 +262,7 @@ def validate_target_population_parent(root: Path) -> dict[str, object]:
     if artifact.get("sha256") != _sha256(population_path):
         raise TargetPopulationError("target_population_payload_hash_mismatch")
     coverage = manifest.get("coverage") or {}
-    if coverage.get("target_years") != list(TARGET_YEARS):
+    covered_years = tuple(coverage.get("target_years") or ())
+    if covered_years not in {TARGET_YEARS, LEGACY_TARGET_YEARS}:
         raise TargetPopulationError("target_population_year_coverage_mismatch")
     return manifest
