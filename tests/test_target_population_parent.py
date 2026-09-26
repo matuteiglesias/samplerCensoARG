@@ -112,3 +112,27 @@ def test_governed_parent_payload_hash_mismatch_fails_closed(tmp_path: Path) -> N
 
     with pytest.raises(TargetPopulationError, match="target_population_payload_hash_mismatch"):
         validate_target_population_parent(parent)
+
+
+def test_legacy_2024_2025_parent_remains_valid(tmp_path: Path) -> None:
+    root = tmp_path / "legacy-parent"
+    root.mkdir()
+    population = root / "target_population.csv"
+    population.write_text(
+        "department_2010_id,department_name,target_year,target_person_mass\n"
+        "02001,A,2024,4\n"
+        "02001,A,2025,5\n",
+        encoding="utf-8",
+    )
+    digest = hashlib.sha256(population.read_bytes()).hexdigest()
+    manifest = {
+        "contract": CONTRACT,
+        "release_id": "legacy-target-population-v1",
+        "coverage": {"target_years": [2024, 2025]},
+        "artifacts": {"target_population.csv": {"sha256": digest}},
+    }
+    (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    checked = validate_target_population_parent(root)
+
+    assert checked["coverage"]["target_years"] == [2024, 2025]
