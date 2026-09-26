@@ -12,6 +12,14 @@ FIXTURE = ROOT / "fixtures" / "cpv2010_valid"
 def _target_parent(path: Path) -> Path:
     path.write_text(
         "department_2010_id,target_year,target_person_mass\n"
+        "02001,2022,4\n"
+        "50007,2022,2\n"
+        "90084,2022,3\n"
+        "94008,2022,1\n"
+        "02001,2023,5\n"
+        "50007,2023,2\n"
+        "90084,2023,3\n"
+        "94008,2023,1\n"
         "02001,2024,4\n"
         "50007,2024,2\n"
         "90084,2024,3\n"
@@ -37,7 +45,7 @@ def _args(tmp_path: Path, year: int) -> dict[str, object]:
     }
 
 
-@pytest.mark.parametrize("year", [2024, 2025])
+@pytest.mark.parametrize("year", [2022, 2023, 2024, 2025])
 def test_streaming_backend_is_byte_equivalent_to_reference_fixture(
     tmp_path: Path, year: int
 ) -> None:
