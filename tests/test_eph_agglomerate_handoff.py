@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
 from censo_sampler.eph_agglomerate_handoff import (
     EphAgglomerateHandoffError,
+    _load_g1_relation,
     derive_household_agglomerates,
 )
+from censo_sampler.frame_contract import sha256_file
 
 
 def _selection() -> pd.DataFrame:
@@ -113,3 +118,52 @@ def test_numeric_or_short_radio_identity_is_rejected():
         match="selection_radio_id_must_be_9_digits",
     ):
         derive_household_agglomerates(selection, _a7())
+
+
+def test_g1_first_class_relation_is_accepted_as_governed_parent(tmp_path: Path):
+    relation = _a7()
+    relation_path = tmp_path / "radio_to_agglomerate.parquet"
+    relation.to_parquet(relation_path, index=False)
+    manifest = {
+        "dataset": {
+            "dataset_id": "arggeo.indec.eph.census2010.agglomerate-footprint",
+            "version": "exact-sources-test",
+        },
+        "membership": {
+            "artifact": relation_path.name,
+            "content_sha256": sha256_file(relation_path),
+            "relation_sha256": "a" * 64,
+            "spatial_inference": False,
+        },
+    }
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    loaded, loaded_manifest = _load_g1_relation(tmp_path)
+
+    assert loaded.equals(relation)
+    assert loaded_manifest["dataset"]["dataset_id"].endswith("agglomerate-footprint")
+
+
+def test_g1_parent_rejects_spatial_membership_claim(tmp_path: Path):
+    relation = _a7()
+    relation_path = tmp_path / "radio_to_agglomerate.parquet"
+    relation.to_parquet(relation_path, index=False)
+    manifest = {
+        "dataset": {
+            "dataset_id": "arggeo.indec.eph.census2010.agglomerate-footprint",
+            "version": "exact-sources-test",
+        },
+        "membership": {
+            "artifact": relation_path.name,
+            "content_sha256": sha256_file(relation_path),
+            "relation_sha256": "a" * 64,
+            "spatial_inference": True,
+        },
+    }
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(
+        EphAgglomerateHandoffError,
+        match="g1_membership_must_be_direct",
+    ):
+        _load_g1_relation(tmp_path)
