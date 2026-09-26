@@ -1,6 +1,6 @@
 # CPV-2022 frame handoff into Census Sampler
 
-Status: **software contract ready; real local frame pending upstream RedEngine qualification/materialization**
+Status: **sampler contract ready; upstream real VP extraction + frame adapter qualified on bounded slices; independent sampler-side bounded-frame handoff still pending**
 
 ## Ownership
 
@@ -55,7 +55,7 @@ with the neutral frame IDs added, not replacing source variables.
 
 ## First real acceptance fixture
 
-Use the already established VP laboratory:
+The upstream adapter has already qualified real VP relational extraction on this laboratory:
 
 ```text
 RADIO 061471101
@@ -64,7 +64,7 @@ RADIO 061471101
 137 PERSONA
 ```
 
-The upstream adapter should build a `research.census-frame/v1` for this bounded extract and run:
+The remaining cross-repository acceptance is to materialize the upstream adapter's `research.census-frame/v1` for this bounded extract and validate it independently with:
 
 ```bash
 censo-sampler frame check /path/to/frame
@@ -105,9 +105,9 @@ Use official five-digit department/partido/comuna codes directly. Before a natio
 
 Do not block the first 2022 frame on a general historical-geography project. Enumerate real exceptions first; then add a tiny explicit governed crosswalk if needed.
 
-## What is already proven without real data
+## What is already proven
 
-CI contains a synthetic CPV-2022-shaped frame with:
+Sampler CI contains a synthetic CPV-2022-shaped frame with:
 
 - 2022-style relational composite IDs;
 - `department_id` / `radio_id`;
@@ -116,4 +116,10 @@ CI contains a synthetic CPV-2022-shaped frame with:
 
 It passes the exact same frame validator, selection kernel, full-payload materializer and v2 release validator as CPV-2010.
 
-The remaining gate is therefore real-source qualification/materialization, not another sampler architecture change.
+Separately, `argentina-censo2022-rxdb` has real-qualified VP extraction on RADIO
+`061471101` (73 VIVIENDA / 56 HOGAR / 137 PERSONA) and larger bounded slices,
+plus an implemented Census-frame adapter.
+
+The remaining gate is therefore one exact cross-repository bounded handoff:
+upstream real frame bytes -> sampler independent frame check -> same target-year
+sample/release path. It is not another sampler or extraction architecture project.
