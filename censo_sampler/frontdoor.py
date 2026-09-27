@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .frame_2010 import build_cpv2010_frame
 from .frame_contract import CensusFrameError, validate_frame
+from .materialize_selection import materialize_existing_selection_v2
 from .release_v2 import (
     MATERIALIZATION_MODES,
     SampleReleaseV2Error,
@@ -88,6 +89,21 @@ def _sample(argv: list[str]) -> int:
     return 0
 
 
+def _materialize_selection(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="censo-sampler materialize-selection")
+    parser.add_argument("--frame", required=True)
+    parser.add_argument("--selection-release", required=True)
+    parser.add_argument("--output-root", required=True)
+    args = parser.parse_args(argv)
+    path = materialize_existing_selection_v2(
+        Path(args.frame),
+        Path(args.selection_release),
+        Path(args.output_root),
+    )
+    print(path)
+    return 0
+
+
 def _check_release_v2(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="censo-sampler check-release-v2")
     parser.add_argument("release")
@@ -104,6 +120,8 @@ def _modern_dispatch(argv: list[str]) -> int | None:
         return _frame_check(argv[2:])
     if argv and argv[0] == "sample":
         return _sample(argv[1:])
+    if argv and argv[0] == "materialize-selection":
+        return _materialize_selection(argv[1:])
     if argv and argv[0] == "check-release-v2":
         return _check_release_v2(argv[1:])
     return None

@@ -46,7 +46,7 @@ def _target_year_release_parser():
     parser.add_argument("--databasepath", required=True)
     parser.add_argument("--target-population", required=True)
     parser.add_argument("--target-source-id", required=True)
-    parser.add_argument("--target-year", type=int, required=True, choices=[2024, 2025])
+    parser.add_argument("--target-year", type=int, required=True, choices=[2022, 2023, 2024, 2025])
     parser.add_argument("--fraction", type=float, default=0.01)
     parser.add_argument("--seed", type=int, default=20260831)
     parser.add_argument("--output-root", required=True)

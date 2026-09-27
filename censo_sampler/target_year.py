@@ -7,7 +7,7 @@ updates only department person mass through household selection probabilities:
 
 Households are the selection unit and every person in a selected household is
 retained.  The deterministic household score does not include target year, so
-2022-2025 releases use the same random ordering within each department.
+all supported target years use the same random ordering within each department.
 """
 from __future__ import annotations
 

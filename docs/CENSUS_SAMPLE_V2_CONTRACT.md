@@ -124,3 +124,37 @@ The builder additionally checks full-payload row counts against the fixed key se
 CI compares the existing CPV-2010 streaming sampler directly with the new frame-based sampler for both 2024 and 2025 and requires the same selected source households, persons and household probabilities.
 
 The file schema and sample IDs are intentionally different because v2 is a new contract; the scientific selection is required to remain identical.
+
+
+## Hydrating an existing selection-only release
+
+A governed `selection-only` release may be promoted to a new `full-payload`
+child without rerunning or reinterpreting the sampling design:
+
+```bash
+python -m censo_sampler.frontdoor materialize-selection \
+  --frame /path/to/exact/research.census-frame-v1-release \
+  --selection-release /path/to/existing-selection-only-release \
+  --output-root /path/to/output-root
+```
+
+This operation is deliberately stricter than an ad-hoc key filter.
+
+Before materialization it verifies the complete frame artifact hashes and requires
+the frame release ID and frame-manifest SHA-256 to match the exact parent recorded
+by the selection-only release. It then reuses `selection.parquet` and
+`person_membership.parquet` byte-for-byte; no household score is recomputed and
+no resampling is permitted.
+
+The selected `vivienda`, `hogar` and `persona` tables are filtered from the
+parent frame payload with all columns intact. The child manifest records complete
+Arrow schemas and deterministic schema fingerprints for both the frame payload
+and the materialized child. Any parent/output schema disagreement fails closed.
+
+The existing selection-only release remains immutable. The operation emits a new
+content-addressed full-payload child carrying explicit lineage back to both the
+selection release and exact frame manifest.
+
+This is also the supported diagnostic path when a local copy appears to have lost
+substantive columns: do not invent semantic recodes to compensate for a custody
+or schema mismatch. First prove exact frame bytes and schema preservation.

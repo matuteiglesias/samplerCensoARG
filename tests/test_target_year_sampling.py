@@ -16,11 +16,11 @@ FIXTURE = ROOT / "fixtures" / "cpv2010_valid"
 def _target_parent(path: Path) -> Path:
     path.write_text(
         "department_2010_id,target_year,target_person_mass\n"
-        "02001,2022,3\n"
+        "02001,2022,4\n"
         "50007,2022,2\n"
-        "90084,2022,2\n"
+        "90084,2022,3\n"
         "94008,2022,1\n"
-        "02001,2023,4\n"
+        "02001,2023,5\n"
         "50007,2023,2\n"
         "90084,2023,3\n"
         "94008,2023,1\n"
@@ -145,14 +145,7 @@ def test_probability_overflow_fails_instead_of_clipping(tmp_path: Path) -> None:
         )
 
 
-@pytest.mark.parametrize("year", [2022, 2023, 2024, 2025])
-def test_2022_through_2025_are_supported(tmp_path: Path, year: int) -> None:
-    release = _build(tmp_path, year, output_name=f"y{year}")
-    manifest = json.loads((release / "manifest.json").read_text())
-    assert manifest["target_population_parent"]["target_year"] == year
-
-
-def test_years_outside_2022_2025_fail_closed(tmp_path: Path) -> None:
+def test_only_2022_through_2025_are_accepted(tmp_path: Path) -> None:
     target = _target_parent(tmp_path / "target_population.csv")
     with pytest.raises(TargetYearSamplingError, match="target_year_must_be_one_of"):
         build_target_year_release(
@@ -163,6 +156,14 @@ def test_years_outside_2022_2025_fail_closed(tmp_path: Path) -> None:
             target_year=2021,
             geography_path=FIXTURE / "GEOGRAPHY.csv",
         )
+
+
+@pytest.mark.parametrize("year", [2022, 2023, 2024, 2025])
+def test_supported_years_build_with_common_score_contract(tmp_path: Path, year: int) -> None:
+    release = _build(tmp_path, year, output_name=f"y{year}")
+    manifest = json.loads((release / "manifest.json").read_text())
+    assert manifest["target_population_parent"]["target_year"] == year
+    assert manifest["selection"]["common_score_across_target_years"] is True
 
 
 def test_releases_are_byte_stable_across_output_roots(tmp_path: Path) -> None:

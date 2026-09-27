@@ -2,7 +2,7 @@
 
 **State:** `active-bounded`  
 **Decision date:** 2026-08-26  
-**Current architecture review:** 2026-09-02  
+**Current architecture review:** 2026-09-26  
 **Review cadence:** active-development
 
 ## Why this state
@@ -110,17 +110,23 @@ As of 2026-09-02:
 - an additional fixture proves that no sex, age, EDAD or EPH-facing variable is required by the modern sampling path;
 - Python 3.10 and 3.12 CI is green for the implemented frame/v2 boundary.
 
-### Real-data gate — PENDING LOCAL MATERIALIZATION
+### Real-data gate — BOUNDED 2010 PATH ACTIVE / 2022 CROSS-REPO HANDOFF PENDING
 
-Remaining acceptance work primarily requires data/runtime that intentionally lives outside Git:
+The upstream CPV-2022 producer is no longer hypothetical. `argentina-censo2022-rxdb`
+has real-qualified VP extraction on bounded RADIO slices and an implemented
+`research.census-frame/v1` adapter. The sampler architecture therefore does not
+need another 2022-specific implementation.
 
-1. build and deep-check the complete authorized CPV-2010 frame;
-2. produce at least one real CPV-2010 v2 sample and record scale/runtime characteristics;
-3. obtain the bounded real CPV-2022 relational extract from the upstream RXDB stack;
-4. build/check the first real CPV-2022 frame, beginning with RADIO `061471101`;
-5. run the same sampler against that real 2022 frame;
-6. enumerate any actual department-code exceptions before a national 2022 target-year run;
-7. only then materialize national 2022 frames/samples.
+Remaining acceptance work is narrower:
+
+1. preserve/deep-check the exact authorized CPV-2010 frames and v2 samples used by current science;
+2. materialize one bounded real CPV-2022 frame from the qualified upstream adapter, beginning with RADIO `061471101`;
+3. run the sampler's independent `frame check`, target-year plan, sample materialization and v2 release checker on that exact frame;
+4. enumerate actual department-code exceptions, if any, before a national 2022 target-year run;
+5. recover/use the preferred corrected CPV-2022 source release for canonical national materialization;
+6. only then materialize national 2022 frames/samples.
+
+This is a cross-repository custody/materialization gate, not missing sampler architecture.
 
 These are tracked in `docs/HUMAN_OPERATOR_QUEUE.md`.
 
