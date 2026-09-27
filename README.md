@@ -5,8 +5,8 @@ Este repositorio produce **muestras reproducibles de hogares censales** a partir
 Estado actual:
 
 - **CPV-2010:** frame CSV→Parquet implementado y probado contra el fixture histórico;
-- **migración 2010:** la nueva ruta reproduce exactamente las decisiones científicas del sampler streaming anterior para 2024 y 2025;
-- **CPV-2022:** compatibilidad completa probada con un frame sintético de forma 2022; falta únicamente el gate con el extracto RXDB real que se materializa fuera de este repo;
+- **migración 2010:** la nueva ruta reproduce exactamente las decisiones científicas del sampler streaming anterior para 2024 y 2025; el mismo contrato target-year acepta 2022–2025 sin una rama científica por año;
+- **CPV-2022:** compatibilidad completa probada con un frame sintético de forma 2022; la extracción/adapter real upstream ya está acotadamente calificada y falta el gate independiente sampler-side sobre un frame real materializado;
 - las interfaces históricas/v1 siguen disponibles como compatibilidad y oracle de regresión.
 
 La unidad de selección sigue siendo el **hogar** y se conservan **todas las personas** de cada hogar seleccionado.
