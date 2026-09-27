@@ -20,7 +20,6 @@ CONTRACT = "publicdata.argentina-department-population-target/v1"
 SOURCE_GIT_BLOB_SHA1 = "2bfa46dc782d70399b5b749e1d71e38887dec5ca"
 SOURCE_REPO_PATH = "data/info/proy_pop200125.csv"
 TARGET_YEARS = (2022, 2023, 2024, 2025)
-LEGACY_TARGET_YEARS = (2024, 2025)
 CANONICAL_FIELDS = [
     "department_2010_id",
     "department_name",
@@ -208,7 +207,7 @@ def build_indec_2010_2025_target_parent(source_path: Path, output_root: Path) ->
                 ),
                 "evidence": [
                     "Historical repository notebook explicitly identifies the committed table with this INDEC publication.",
-                    "2024/2025 Buenos Aires sentinel values were checked against the official publication before governing this snapshot.",
+                    "2024/2025 Buenos Aires sentinel values were checked against the official publication before governing this snapshot; 2022/2023 rows are carried from the same byte-pinned official 2010-2025 source table.",
                 ],
             },
             "coverage": {

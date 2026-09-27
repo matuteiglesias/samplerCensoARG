@@ -93,7 +93,7 @@ def _unique(rows: list[dict[str, str]], key: str, table: str) -> None:
 
 def _score(seed: int, household_id: str, department_id: str) -> float:
     # Deliberately no target year: the same donor household has the same score
-    # in 2024 and 2025. Only p[d,y] changes.
+    # across every supported target year. Only p[d,y] changes.
     payload = f"{seed}\x1f{household_id}\x1f{department_id}".encode()
     return int.from_bytes(hashlib.sha256(payload).digest(), "big") / 2**256
 
