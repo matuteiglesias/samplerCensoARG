@@ -84,7 +84,9 @@ INDEC describes these estimates as population at 1 July for departments,
 partidos and comunas, based on Census 2022 and coherent with the current
 national and jurisdiction projections.
 
-The producer retains only the both-sex total rows.
+The producer uses an explicit both-sex total row when supplied. The current
+CSV instead supplies one row for each sex (`Sexo=1` and `Sexo=2`), so the
+producer sums those mutually exclusive rows into the person total.
 
 ## Geography
 
@@ -103,6 +105,11 @@ is unchanged across the whole period.
 This is important for cases such as CABA code changes and Tierra del Fuego.
 Updated-only departments are emitted separately and are not given fabricated
 pre-2022 histories.
+
+`bridge_ratio_diagnostics.csv` records the legacy and updated 2022 masses,
+the terminal ratio, the alignment method, and an `extreme_ratio` review flag
+for ratios outside `[0.75, 1.25]`. The flag is diagnostic only; ratios are
+never capped or otherwise damped.
 
 ## Value status
 

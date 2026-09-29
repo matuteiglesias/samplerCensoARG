@@ -37,6 +37,8 @@ METHOD_ID = "research.argentina-department-population-target/vintage-bridge-line
 HISTORY_START = 2001
 ANCHOR_YEAR = 2010
 UPDATED_START = 2022
+BRIDGE_RATIO_MIN_DIAGNOSTIC = Decimal("0.75")
+BRIDGE_RATIO_MAX_DIAGNOSTIC = Decimal("1.25")
 
 LEGACY_HISTORY_REPO_PATH = "data/info/proy_pop20012225.csv"
 LEGACY_PROJECTION_REPO_PATH = "data/info/proy_pop200125.csv"
@@ -184,7 +186,11 @@ def _is_total_sex(value: str) -> bool:
 
 
 def _read_updated(path: Path) -> dict[str, DepartmentSeries]:
-    """Read the official INDEC 2022-2035 CSV and retain both-sex totals only."""
+    """Read the official INDEC 2022-2035 CSV and produce person totals.
+
+    The source may publish an explicit total-sex row or one row per sex. In
+    the latter case, the mutually exclusive sex rows are summed.
+    """
     path = Path(path).expanduser().resolve()
     with path.open("r", encoding="utf-8-sig", newline="") as stream:
         reader = csv.DictReader(stream, delimiter=";")
@@ -204,10 +210,9 @@ def _read_updated(path: Path) -> dict[str, DepartmentSeries]:
 
         names: dict[str, str] = {}
         values: dict[str, dict[int, int]] = {}
+        sex_values: dict[tuple[str, int], dict[str, int]] = {}
         for row in reader:
             sex = row[wanted["sexo"]]
-            if not _is_total_sex(sex):
-                continue
             department_id = _normalize_id(row[wanted["codigo departamento"]])
             name = (row[wanted["nombre departamento"]] or "").strip()
             if not name:
@@ -222,12 +227,29 @@ def _read_updated(path: Path) -> dict[str, DepartmentSeries]:
             population = _parse_positive_int(
                 raw_population, context=f"updated:{department_id}:{year}"
             )
-            if year in values.setdefault(department_id, {}):
-                raise CanonicalPopulationError(
-                    f"duplicate_updated_department_year:{department_id}:{year}"
-                )
-            values[department_id][year] = population
             names[department_id] = name
+            if _is_total_sex(sex):
+                if year in values.setdefault(department_id, {}):
+                    raise CanonicalPopulationError(
+                        f"duplicate_updated_department_year:{department_id}:{year}"
+                    )
+                values[department_id][year] = population
+            else:
+                key = (department_id, year)
+                if sex in sex_values.setdefault(key, {}):
+                    raise CanonicalPopulationError(
+                        f"duplicate_updated_sex_department_year:{department_id}:{year}:{sex}"
+                    )
+                sex_values[key][sex] = population
+
+        # The published CSV currently exposes one row per sex (codes 1 and 2)
+        # rather than an explicit both-sex total.  When no total rows exist,
+        # aggregate those mutually exclusive rows into the required person
+        # mass.  Explicit total rows remain authoritative for fixture/variant
+        # sources and are never mixed with sex-specific rows.
+        if not values and sex_values:
+            for (department_id, year), by_sex in sex_values.items():
+                values.setdefault(department_id, {})[year] = sum(by_sex.values())
 
     if not values:
         raise CanonicalPopulationError("updated_source_no_total_rows")
@@ -298,20 +320,31 @@ def _alignment(
                 raise CanonicalPopulationError(
                     f"override_updated_department_missing:{legacy_id}:{updated_id}"
                 )
-        elif legacy_id in updated:
-            updated_id = legacy_id
-            method = "same_code"
         else:
             candidates = by_name.get(
                 (legacy_id[:2], _normalize_name(series.department_name)), []
             )
-            if len(candidates) == 1:
+            same_code_name_matches = (
+                legacy_id in updated
+                and _normalize_name(series.department_name)
+                == _normalize_name(updated[legacy_id].department_name)
+            )
+            if same_code_name_matches:
+                updated_id = legacy_id
+                method = "same_code"
+            elif len(candidates) == 1:
                 updated_id = candidates[0]
                 method = "same_normalized_name"
             elif len(candidates) > 1:
                 raise CanonicalPopulationError(
                     f"ambiguous_name_alignment:{legacy_id}:{candidates}"
                 )
+            elif legacy_id in updated:
+                # Preserve a same-code geography when only the published name
+                # spelling/abbreviation changed, but expose that judgment in
+                # the alignment artifact instead of silently coercing it.
+                updated_id = legacy_id
+                method = "same_code_name_variant"
         if not updated_id:
             unresolved.append(legacy_id)
             rows.append(
@@ -404,6 +437,26 @@ def build_canonical_department_population(
         legacy_2022 = legacy_series.values[UPDATED_START]
         updated_2022 = updated[updated_id].values[UPDATED_START]
         terminal_ratios[legacy_id] = Decimal(updated_2022) / Decimal(legacy_2022)
+    ratio_diagnostics = [
+        {
+            "legacy_department_id": legacy_id,
+            "legacy_department_name": projection[legacy_id].department_name,
+            "updated_department_id": mapping[legacy_id],
+            "updated_department_name": updated[mapping[legacy_id]].department_name,
+            "legacy_2022": projection[legacy_id].values[UPDATED_START],
+            "updated_2022": updated[mapping[legacy_id]].values[UPDATED_START],
+            "terminal_2022_ratio": str(terminal_ratios[legacy_id]),
+            "match_method": next(
+                row["match_method"]
+                for row in alignment_rows
+                if row["legacy_department_id"] == legacy_id
+            ),
+            "extreme_ratio": terminal_ratios[legacy_id]
+            < BRIDGE_RATIO_MIN_DIAGNOSTIC
+            or terminal_ratios[legacy_id] > BRIDGE_RATIO_MAX_DIAGNOSTIC,
+        }
+        for legacy_id in sorted(projection)
+    ]
 
     # Trusted historical levels, period-native legacy geography.
     for legacy_id, series in sorted(history.items()):
@@ -523,6 +576,22 @@ def build_canonical_department_population(
             ],
             alignment_rows,
         )
+        ratio_diagnostics_path = staging / "bridge_ratio_diagnostics.csv"
+        _write_csv(
+            ratio_diagnostics_path,
+            [
+                "legacy_department_id",
+                "legacy_department_name",
+                "updated_department_id",
+                "updated_department_name",
+                "legacy_2022",
+                "updated_2022",
+                "terminal_2022_ratio",
+                "match_method",
+                "extreme_ratio",
+            ],
+            ratio_diagnostics,
+        )
         updated_only = sorted(set(updated) - set(mapping.values()))
         updated_only_rows = [
             {
@@ -548,6 +617,9 @@ def build_canonical_department_population(
             year_totals[year] = year_totals.get(year, 0) + int(row["target_person_mass"])
 
         ratio_values = [float(x) for x in terminal_ratios.values()]
+        extreme_ratio_count = sum(
+            bool(row["extreme_ratio"]) for row in ratio_diagnostics
+        )
         qa = {
             "status": "pass",
             "coverage_start": HISTORY_START,
@@ -564,6 +636,11 @@ def build_canonical_department_population(
             "bridge_terminal_ratio_min": min(ratio_values),
             "bridge_terminal_ratio_max": max(ratio_values),
             "bridge_terminal_ratio_mean": sum(ratio_values) / len(ratio_values),
+            "bridge_ratio_diagnostic_range": [
+                float(BRIDGE_RATIO_MIN_DIAGNOSTIC),
+                float(BRIDGE_RATIO_MAX_DIAGNOSTIC),
+            ],
+            "bridge_extreme_ratio_count": extreme_ratio_count,
             "bridge_formula": (
                 "legacy[y] * (1 + ((y-2010)/12) * "
                 "((updated[2022]/legacy[2022]) - 1))"
@@ -620,6 +697,10 @@ def build_canonical_department_population(
                     "period-native IDs; explicit alignment is used only to compute "
                     "the 2022 terminal ratio for historical bridge rows"
                 ),
+                "ratio_diagnostics": (
+                    "bridge_ratio_diagnostics.csv; extreme_ratio marks ratios "
+                    "outside [0.75, 1.25] for review, without capping them"
+                ),
             },
             "artifacts": {
                 "target_population.csv": {
@@ -629,6 +710,10 @@ def build_canonical_department_population(
                 "geography_alignment.csv": {
                     "sha256": _sha256(alignment_path),
                     "size_bytes": alignment_path.stat().st_size,
+                },
+                "bridge_ratio_diagnostics.csv": {
+                    "sha256": _sha256(ratio_diagnostics_path),
+                    "size_bytes": ratio_diagnostics_path.stat().st_size,
                 },
                 "updated_only_departments.csv": {
                     "sha256": _sha256(updated_only_path),

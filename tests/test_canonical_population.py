@@ -128,6 +128,9 @@ def test_builds_period_native_canonical_surface_with_exact_anchors(tmp_path: Pat
     assert manifest["coverage"]["start_year"] == 2001
     assert manifest["coverage"]["end_year"] == 2024
     assert manifest["method_id"].endswith("vintage-bridge-linear-v1")
+    diagnostics = _rows(release / "bridge_ratio_diagnostics.csv")
+    assert {row["legacy_department_id"] for row in diagnostics} == {"02001", "94007"}
+    assert {row["match_method"] for row in diagnostics} == {"same_normalized_name"}
 
 
 def test_bridge_scale_is_linear_and_hits_updated_over_legacy_ratio(tmp_path: Path) -> None:
