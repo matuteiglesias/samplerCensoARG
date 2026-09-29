@@ -261,7 +261,15 @@ def validate_target_population_parent(root: Path) -> dict[str, object]:
     if artifact.get("sha256") != _sha256(population_path):
         raise TargetPopulationError("target_population_payload_hash_mismatch")
     coverage = manifest.get("coverage") or {}
-    covered_years = tuple(coverage.get("target_years") or ())
-    if covered_years not in {TARGET_YEARS, LEGACY_TARGET_YEARS}:
-        raise TargetPopulationError("target_population_year_coverage_mismatch")
+    raw_years = coverage.get("target_years") or []
+    if not isinstance(raw_years, list) or not raw_years:
+        raise TargetPopulationError("target_population_year_coverage_missing")
+    try:
+        covered_years = tuple(int(year) for year in raw_years)
+    except (TypeError, ValueError) as exc:
+        raise TargetPopulationError("target_population_year_coverage_invalid") from exc
+    if covered_years != tuple(sorted(set(covered_years))):
+        raise TargetPopulationError("target_population_year_coverage_invalid")
+    if min(covered_years) < 1900 or max(covered_years) > 2100:
+        raise TargetPopulationError("target_population_year_coverage_invalid")
     return manifest
