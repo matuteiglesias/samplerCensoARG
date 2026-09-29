@@ -6,6 +6,13 @@ import json
 import sys
 from pathlib import Path
 
+from .canonical_population import (
+    CanonicalPopulationError,
+    LEGACY_HISTORY_REPO_PATH,
+    LEGACY_PROJECTION_REPO_PATH,
+    build_canonical_department_population,
+    fetch_updated_source,
+)
 from .frame_2010 import build_cpv2010_frame
 from .frame_contract import CensusFrameError, validate_frame
 from .materialize_selection import materialize_existing_selection_v2
@@ -16,6 +23,41 @@ from .release_v2 import (
     validate_sample_release_v2,
 )
 
+
+
+
+def _target_population_fetch_updated(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="censo-sampler target-population fetch-updated"
+    )
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args(argv)
+    path = fetch_updated_source(Path(args.output))
+    print(path)
+    return 0
+
+
+def _target_population_build_canonical(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="censo-sampler target-population build-canonical"
+    )
+    parser.add_argument("--legacy-history", default=LEGACY_HISTORY_REPO_PATH)
+    parser.add_argument("--legacy-projection", default=LEGACY_PROJECTION_REPO_PATH)
+    parser.add_argument("--updated-source", required=True)
+    parser.add_argument("--geography-overrides")
+    parser.add_argument("--output-root", required=True)
+    args = parser.parse_args(argv)
+    path = build_canonical_department_population(
+        Path(args.legacy_history),
+        Path(args.legacy_projection),
+        Path(args.updated_source),
+        Path(args.output_root),
+        geography_overrides_path=(
+            Path(args.geography_overrides) if args.geography_overrides else None
+        ),
+    )
+    print(path)
+    return 0
 
 def _frame_build_2010(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="censo-sampler frame build-2010")
@@ -114,6 +156,10 @@ def _check_release_v2(argv: list[str]) -> int:
 
 
 def _modern_dispatch(argv: list[str]) -> int | None:
+    if argv[:2] == ["target-population", "fetch-updated"]:
+        return _target_population_fetch_updated(argv[2:])
+    if argv[:2] == ["target-population", "build-canonical"]:
+        return _target_population_build_canonical(argv[2:])
     if argv[:2] == ["frame", "build-2010"]:
         return _frame_build_2010(argv[2:])
     if argv[:2] == ["frame", "check"]:
@@ -133,7 +179,7 @@ def main(argv: list[str] | None = None) -> int:
         result = _modern_dispatch(argv)
         if result is not None:
             return result
-    except (CensusFrameError, SampleReleaseV2Error) as exc:
+    except (CanonicalPopulationError, CensusFrameError, SampleReleaseV2Error) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

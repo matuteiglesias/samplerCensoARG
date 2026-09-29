@@ -15,6 +15,7 @@ authority:
   - person-to-household membership in sampled releases
   - sampling probability and declared sampling-design semantics
   - optional target-year department-stratified household sampling when an exact population-by-department parent is supplied
+  - consumer-side canonical target-mass harmonization across pinned demographic source vintages, with explicit derived-value status
   - vintage-neutral research.census-frame/v1 validation and the CPV-2010 CSV-to-Parquet frame builder
   - key-first selection artifacts and optional full relational payload materialization
   - QA, manifests, hashes and packaging of research.census-target-year-sample/v2
@@ -37,6 +38,7 @@ interfaces:
   - artifact:research.census-frame@1
   - artifact:research.census-target-year-sample@2
   - artifact:research.census-sample@1
+  - artifact:publicdata.argentina-department-population-target/v1
 upstream:
 - repo.argentina-geography
 - repo.argentina-censo2022-rxdb
@@ -44,6 +46,9 @@ downstream:
 - repo.encuestador-de-hogares
 - repo.indice-pobreza-uba
 canonical_commands:
+- name: build-canonical-target-population
+  command: censo-sampler target-population build-canonical <options>
+  output: publicdata.argentina-department-population-target/v1
 - name: build-cpv2010-frame
   command: censo-sampler frame build-2010 <options>
   output: research.census-frame/v1
