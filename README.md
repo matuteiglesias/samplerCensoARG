@@ -7,6 +7,7 @@ Estado actual:
 - **CPV-2010:** frame CSV→Parquet implementado y probado contra el fixture histórico;
 - **migración 2010:** la nueva ruta reproduce exactamente las decisiones científicas del sampler streaming anterior para 2024 y 2025; el mismo contrato target-year acepta 2022–2025 sin una rama científica por año;
 - **CPV-2022:** compatibilidad completa probada con un frame sintético de forma 2022; la extracción/adapter real upstream ya está acotadamente calificada y falta el gate independiente sampler-side sobre un frame real materializado;
+- **población target canónica:** productor gobernado 2001–2035 que conserva niveles legacy 2001–2010, construye un bridge explícito 2011–2021 y usa las estimaciones INDEC basadas en Censo 2022 desde 2022;
 - las interfaces históricas/v1 siguen disponibles como compatibilidad y oracle de regresión.
 
 La unidad de selección sigue siendo el **hogar** y se conservan **todas las personas** de cada hogar seleccionado.
@@ -36,6 +37,7 @@ El sampler **no abre RXDB, no depende de RedEngine y no decide qué variables ne
 
 Véanse:
 
+- [`docs/CANONICAL_DEPARTMENT_POPULATION_2001_2035.md`](docs/CANONICAL_DEPARTMENT_POPULATION_2001_2035.md)
 - [`docs/CENSUS_FRAME_CONTRACT_V1.md`](docs/CENSUS_FRAME_CONTRACT_V1.md)
 - [`docs/CENSUS_SAMPLE_V2_CONTRACT.md`](docs/CENSUS_SAMPLE_V2_CONTRACT.md)
 - [`docs/CPV2022_FRAME_HANDOFF.md`](docs/CPV2022_FRAME_HANDOFF.md)
@@ -105,7 +107,33 @@ radio_cmpcode → radio_id
 
 La primera prueba real prevista es RADIO `061471101` (73 viviendas, 56 hogares, 137 personas). El sampler ya pasa la misma ruta completa con un fixture sintético 2022; no se declara todavía el gate real cerrado hasta ejecutar ese handoff local.
 
-## 3. Muestreo target-year compartido
+## 3. Población target canónica 2001–2035
+
+El sampler puede construir una superficie anual de masa poblacional departamental
+que mantiene separadas las revisiones demográficas:
+
+```bash
+censo-sampler target-population fetch-updated \
+  --output /home/matias/data/population-sources/base_estimaciones_pob_deptos_2022_2035.csv
+
+censo-sampler target-population build-canonical \
+  --updated-source /home/matias/data/population-sources/base_estimaciones_pob_deptos_2022_2035.csv \
+  --output-root /home/matias/data/department-population-canonical
+```
+
+La superficie usa valores históricos legacy sin revisar hasta 2010, un bridge
+multiplicativo lineal 2011–2021, y estimaciones INDEC basadas en Censo 2022
+desde 2022. Cada fila declara su `value_status`; no se presenta el bridge
+como observación oficial.
+
+La geografía es period-native: el producto conserva IDs legacy antes de 2022
+y los IDs de la fuente vigente desde 2022. Las relaciones necesarias para
+construir el bridge se emiten en `geography_alignment.csv`; no se fuerza
+identidad de códigos entre vintages.
+
+Véase [la especificación completa](docs/CANONICAL_DEPARTMENT_POPULATION_2001_2035.md).
+
+## 4. Muestreo target-year compartido
 
 Para donor person mass `D[d]`, target person mass `T[d,y]` e intensidad global `c`:
 
@@ -134,7 +162,7 @@ assume-code-identity/v1
 
 Es decir, se asume identidad del código oficial de departamento/partido/comuna entre 2010, 2022 y el parent de población objetivo. El sampler compara los universos y **falla de forma visible** si encuentra excepciones; esas pocas excepciones podrán resolverse luego con un crosswalk gobernado específico.
 
-## 4. Key-first: el sampler no elige features
+## 5. Key-first: el sampler no elige features
 
 La decisión científica se materializa primero en:
 
@@ -162,7 +190,7 @@ Modos:
 --materialize full-payload
 ```
 
-## 5. Release v2 y pesos
+## 6. Release v2 y pesos
 
 El contrato nuevo es:
 
@@ -199,7 +227,7 @@ Validación offline:
 censo-sampler check-release-v2 /secure/census-samples/<release>
 ```
 
-## 6. Reproducibilidad y QA
+## 7. Reproducibilidad y QA
 
 El sistema valida/falla ante, entre otros casos:
 
@@ -215,7 +243,7 @@ El sistema valida/falla ante, entre otros casos:
 
 La migración tiene además un gate fuerte: para el fixture CPV-2010, el sampler nuevo debe seleccionar exactamente los mismos hogares/personas y las mismas probabilidades que `streaming_target_year.py` en 2024 y 2025.
 
-## 7. Verificación del repositorio
+## 8. Verificación del repositorio
 
 ```bash
 make test
