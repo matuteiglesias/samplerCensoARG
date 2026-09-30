@@ -76,10 +76,11 @@ scientific_invariants:
 - no downstream consumer may infer a target-year analysis weight from a generic sample_weight field
 - target year is excluded from the deterministic household score so one donor frame uses common random ordering across target years
 verification:
-  status: vintage-neutral-real-cpv2010-in-use-cpv2022-handoff-bounded-upstream-qualified
-  last_verified: '2026-09-27'
+  status: vintage-neutral-cpv2010-in-use-canonical-population-real-source-proven
+  last_verified: '2026-09-29'
   command: make check
   evidence:
+  - canonical department population producer 2001–2035 passed real INDEC 2022–2035 source validation, geography seam checks and bridge-ratio diagnostics
   - CPV-2010 frame builder and deep validator pass fixture acceptance
   - new frame-based sampler reproduces historical streaming CPV-2010 household/person decisions and probabilities for 2024 and 2025
   - the same governed target-year contract/code path accepts the 2022–2025 envelope without year-specific sampler science
