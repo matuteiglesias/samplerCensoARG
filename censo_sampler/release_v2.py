@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from .frame_contract import CensusFrameError, canonical_json, sha256_file, validate_frame
+from .frame_coverage import PartialFrameCoverageError, partial_source_coverage, require_commissioning_for_partial
 from .selection import SELECTION_ALGORITHM, SelectionError, select_households
 from .target_adapter import (
     TargetPopulationAdapterError,
@@ -168,6 +169,7 @@ def build_sample_release_v2(
     fraction: float = 0.01,
     seed: int = 20260831,
     materialization: str = "full-payload",
+    commissioning_only: bool = False,
 ) -> Path:
     """Sample a prepared Census frame using one vintage-neutral algorithm."""
     if materialization not in MATERIALIZATION_MODES:
@@ -178,6 +180,9 @@ def build_sample_release_v2(
     output_root = Path(output_root).expanduser().resolve()
     try:
         frame_info = validate_frame(frame_root, verify_hashes=True, deep=False)
+        coverage = require_commissioning_for_partial(
+            frame_info["manifest"], commissioning_only=commissioning_only
+        )
         target_mass, target_meta = load_target_population(target_population, target_year)
         donor_mass = _load_donor_mass(frame_root)
         alignment = require_department_alignment(set(donor_mass), set(target_mass))
@@ -188,7 +193,7 @@ def build_sample_release_v2(
             fraction=fraction,
             seed=seed,
         )
-    except (CensusFrameError, TargetPopulationAdapterError, SelectionError) as exc:
+    except (CensusFrameError, TargetPopulationAdapterError, SelectionError, PartialFrameCoverageError) as exc:
         raise SampleReleaseV2Error(str(exc)) from exc
 
     frame_release_id = str(frame_info["frame_release_id"])
@@ -203,6 +208,7 @@ def build_sample_release_v2(
         "seed": seed,
         "selection_algorithm": SELECTION_ALGORITHM,
         "materialization": materialization,
+        **({"commissioning_only": True} if commissioning_only else {}),
     }
     release_hash = hashlib.sha256(
         json.dumps(release_identity, sort_keys=True, separators=(",", ":")).encode()
@@ -364,6 +370,12 @@ def build_sample_release_v2(
             "departments": department_qa,
             "materialization": materialization,
             "materialized_counts": materialized_counts,
+            **({"scientific_use": {
+                "classification": "commissioning_only",
+                "publication_allowed": False,
+                "reason": "partial_donor_universe_diagnostic" if coverage is not None
+                          else "explicit_diagnostic_use",
+            }} if commissioning_only else {}),
         }
         (staging / "qa.json").write_text(canonical_json(qa), encoding="utf-8")
 
@@ -385,6 +397,7 @@ def build_sample_release_v2(
                 "census_vintage": frame_info["census_vintage"],
                 "source_release_id": frame_info["manifest"].get("source_release_id"),
                 "manifest_sha256": frame_manifest_hash,
+                **({"source_coverage": coverage} if coverage is not None else {}),
             },
             "target_population_parent": {
                 "target_year": target_year,
@@ -410,6 +423,12 @@ def build_sample_release_v2(
             },
             "department_alignment_policy": "assume-code-identity/v1",
             "materialization": materialization,
+            **({"scientific_use": {
+                "classification": "commissioning_only",
+                "publication_allowed": False,
+                "reason": "partial_donor_universe_diagnostic" if coverage is not None
+                          else "explicit_diagnostic_use",
+            }} if commissioning_only else {}),
             **({"payload_schema_custody": payload_schema_custody} if payload_schema_custody is not None else {}),
             "artifacts": artifacts,
             "qa": qa,
@@ -437,6 +456,23 @@ def validate_sample_release_v2(root: Path) -> dict[str, Any]:
         raise SampleReleaseV2Error("sample_v2_manifest_or_qa_invalid") from exc
     if manifest.get("contract") != SAMPLE_CONTRACT_V2:
         raise SampleReleaseV2Error("unexpected_sample_v2_contract")
+    claimed_coverage = (manifest.get("frame") or {}).get("source_coverage")
+    try:
+        partial_coverage = partial_source_coverage(
+            {"source_coverage": claimed_coverage} if claimed_coverage is not None else {}
+        )
+    except PartialFrameCoverageError as exc:
+        raise SampleReleaseV2Error(str(exc)) from exc
+    scientific_use = manifest.get("scientific_use")
+    if partial_coverage is not None:
+        if not isinstance(scientific_use, dict) or scientific_use.get("classification") != "commissioning_only":
+            raise SampleReleaseV2Error("sample_v2_partial_frame_unmarked_commissioning")
+    if scientific_use is not None:
+        if (not isinstance(scientific_use, dict)
+                or scientific_use.get("classification") != "commissioning_only"
+                or scientific_use.get("publication_allowed") is not False
+                or qa.get("scientific_use") != scientific_use):
+            raise SampleReleaseV2Error("sample_v2_invalid_scientific_use")
     artifacts = manifest.get("artifacts") or {}
     for name, record in artifacts.items():
         path = root / name

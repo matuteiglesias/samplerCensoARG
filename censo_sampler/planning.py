@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .frame_contract import CensusFrameError, validate_frame
+from .frame_coverage import PartialFrameCoverageError, partial_source_coverage
 from .target_adapter import (
     TargetPopulationAdapterError,
     department_alignment,
@@ -40,6 +41,7 @@ def plan_sample(
     target_population: Path,
     target_year: int,
     fraction: float,
+    commissioning_only: bool = False,
 ) -> dict[str, Any]:
     """Inspect alignment/probabilities without selecting or writing Census rows."""
     if not (0 < fraction <= 1):
@@ -47,8 +49,9 @@ def plan_sample(
     frame_root = Path(frame_root).expanduser().resolve()
     try:
         frame = validate_frame(frame_root, verify_hashes=True, deep=False)
+        partial_coverage = partial_source_coverage(frame["manifest"])
         target_mass, target_meta = load_target_population(target_population, target_year)
-    except (CensusFrameError, TargetPopulationAdapterError) as exc:
+    except (CensusFrameError, TargetPopulationAdapterError, PartialFrameCoverageError) as exc:
         raise SamplePlanningError(str(exc)) from exc
     donor_mass = _load_donor_mass(frame_root)
     alignment = department_alignment(set(donor_mass), set(target_mass))
@@ -85,7 +88,8 @@ def plan_sample(
         )
 
     aligned = not alignment["frame_only"] and not alignment["target_only"]
-    valid = aligned and not overflow and all(row["status"] == "aligned" for row in rows)
+    partial_blocked = partial_coverage is not None and not commissioning_only
+    valid = aligned and not overflow and not partial_blocked and all(row["status"] == "aligned" for row in rows)
     probabilities = [
         float(row["selection_probability"])
         for row in rows
@@ -109,4 +113,16 @@ def plan_sample(
         "expected_selected_person_mass": fraction * sum(target_mass.values()),
         "target_population": target_meta,
         "departments": rows,
+        **(
+            {
+                "frame_source_coverage": partial_coverage,
+                "scientific_use": {
+                    "classification": "commissioning_only" if commissioning_only
+                                      else "blocked_partial_frame",
+                    "publication_allowed": False,
+                    "reason": "partial_frame_requires_commissioning_only"
+                              if partial_blocked else "partial_donor_universe_diagnostic",
+                },
+            } if partial_coverage is not None else {}
+        ),
     }
