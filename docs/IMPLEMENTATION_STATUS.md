@@ -123,7 +123,14 @@ only that neutral frame contract.
 
 ## WP-R12 — Real bounded CPV-2022 proof
 
-**PARTIAL: UPSTREAM REAL EXTRACTION QUALIFIED / SAMPLER-SIDE HANDOFF PENDING**
+**DONE FOR REAL BOUNDED SOFTWARE COMMISSIONING; NATIONAL SCIENTIFIC HANDOFF NOT YET AUTHORIZED**
+
+2026-11-17: real RPO-11 16/200/2,996-RADIO donor frames pass independent
+sampler checks, and the real 16-RADIO source yields a **commissioning-only**
+234-household/464-person full-payload v2 sample with all source masks intact.
+Default target-year sampling rejects explicitly incomplete source coverage;
+a diagnostic override retains an explicit non-publication scientific-use tag.
+The national donor-completeness and official target-year support gates remain open.
 
 Permanent first cross-repository gate:
 

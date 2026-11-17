@@ -112,6 +112,10 @@ def _sample(argv: list[str]) -> int:
     parser.add_argument("--fraction", type=float, default=0.01)
     parser.add_argument("--seed", type=int, default=20260831)
     parser.add_argument(
+        "--commissioning-only", action="store_true",
+        help="explicit diagnostic only: permit known partial frames, mark output non-publishable",
+    )
+    parser.add_argument(
         "--materialize",
         default="full-payload",
         choices=sorted(MATERIALIZATION_MODES),
@@ -126,6 +130,7 @@ def _sample(argv: list[str]) -> int:
         fraction=args.fraction,
         seed=args.seed,
         materialization=args.materialize,
+        commissioning_only=args.commissioning_only,
     )
     print(path)
     return 0

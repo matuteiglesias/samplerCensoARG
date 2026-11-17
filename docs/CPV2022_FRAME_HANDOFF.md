@@ -1,6 +1,6 @@
 # CPV-2022 frame handoff into Census Sampler
 
-Status: **sampler contract ready; upstream real VP extraction + frame adapter qualified on bounded slices; independent sampler-side bounded-frame handoff still pending**
+Status: **real RPO-11 frame and bounded sampler handoff qualified in commissioning-only mode (2026-11-17); national scientific promotion still blocked**
 
 ## Ownership
 
@@ -123,3 +123,50 @@ plus an implemented Census-frame adapter.
 The remaining gate is therefore one exact cross-repository bounded handoff:
 upstream real frame bytes -> sampler independent frame check -> same target-year
 sample/release path. It is not another sampler or extraction architecture project.
+
+
+## Real RPO-11 acceptance and partial-coverage gate (2026-11-17)
+
+The upstream `argentina-censo2022-rxdb` adapter (`frame-rpo11`, PR #11)
+produced real `research.census-frame/v1` releases from immutable
+SQLite-governed multi-RADIO Parquet shards. The full 3,000-rank window has
+2,996 committed RADIOs, four explicitly excluded failures, 1,249,819 viviendas,
+1,092,161 hogares and 2,451,927 personas. Independent deep frame check passed.
+**This does not establish national or provincial representativeness.**
+
+The identical bounded commissioning protocol also passed with the first
+200 RADIOs (849 households / 1,729 persons selected) and the entire
+3,000-ID window (2,996 committed RADIOs, 13 represented departments;
+1,082 households / 2,392 persons selected). Both are `full-payload`
+`research.census-target-year-sample/v2` releases with source masks and
+explicit missing-coverage provenance intact. A separate 16-RADIO
+`selection-only` release was materialized later with the same
+commissioning restriction, validating preservation through that branch.
+
+Local diagnostic outputs and executable evidence are recorded at
+`Elements1/CENSO_work/benchmarks/rpo11-cpv2022-sampler-qualification-20261117/`.
+All diagnostic target masses deliberately equal observed donor masses;
+**none** is an official 2024 population projection.
+
+A bounded real 16-RADIO frame was sampled with a SYNTHETIC diagnostic target
+equal to the observed donor mass (NOT official population projections).
+The full-payload v2 release contains 234 households and 464 persons, preserves
+original Parquet source and `__mask` fields, and passes the independent
+`censo-sampler check-release-v2` validator.
+
+When the donor frame declares `source_coverage.coverage_is_partial=true`,
+the normal planner and sampler now block even if department IDs align.
+To exercise the partial frame for *software commissioning only*, explicitly
+use `--commissioning-only`:
+
+```bash
+censo-sample-plan --frame <partial-frame> --target-population <diagnostic-target>   --target-year 2024 --fraction 0.05 --commissioning-only
+censo-sampler sample --frame <partial-frame> --target-population <diagnostic-target>   --target-year 2024 --fraction 0.05 --seed 20260831   --materialize full-payload --commissioning-only --output-root <private-output>
+censo-sampler check-release-v2 <private-output>/<release-id>
+```
+
+The release ID, v2 manifest and QA are tagged `commissioning_only`,
+`publication_allowed=false`, with source-coverage provenance. The v2 checker
+rejects missing commissioning markers if the sample declares partial coverage.
+Passing this gate does not authorize statistical inference, target-year weights,
+poverty publication or redistribution of person-level data.

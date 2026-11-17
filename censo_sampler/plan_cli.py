@@ -16,6 +16,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target-year", type=int, required=True)
     parser.add_argument("--fraction", type=float, default=0.01)
     parser.add_argument(
+        "--commissioning-only", action="store_true",
+        help="permit a diagnostic plan for an explicitly incomplete frame; not a research sample",
+    )
+    parser.add_argument(
         "--details",
         action="store_true",
         help="include per-department diagnostics",
@@ -27,6 +31,7 @@ def main(argv: list[str] | None = None) -> int:
             target_population=Path(args.target_population),
             target_year=args.target_year,
             fraction=args.fraction,
+            commissioning_only=args.commissioning_only,
         )
     except SamplePlanningError as exc:
         print(f"error: {exc}", file=sys.stderr)

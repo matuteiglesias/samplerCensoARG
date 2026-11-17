@@ -303,3 +303,113 @@ def test_department_mismatch_is_visible_not_silently_dropped(tmp_path: Path) -> 
     assert masses == {"02001": 10}
     with pytest.raises(TargetPopulationAdapterError, match="department_alignment_mismatch"):
         require_department_alignment({"02001", "50007"}, set(masses))
+
+
+def _mark_partial_2022_frame(frame: Path) -> dict:
+    """Declare a real-world shape: one extracted RADIO + one failed RADIO."""
+    mpath = frame / "manifest.json"
+    manifest = json.loads(mpath.read_text(encoding="utf-8"))
+    coverage = {
+        "contract": "rpo11-frame-coverage/v1",
+        "coverage_is_partial": True,
+        "rank_min": 1,
+        "rank_max": 2,
+        "attempted_radios": 2,
+        "committed_radios": 1,
+        "included_radios": ["061471101"],
+        "needs_local_radios": ["061471102"],
+        "population_claim": "observed_partial_CP2022_extraction_not_national",
+    }
+    manifest["source_coverage"] = coverage
+    mpath.write_text(canonical_json(manifest), encoding="utf-8")
+    return coverage
+
+
+def test_partial_2022_frame_requires_explicit_commissioning_and_marks_release(
+    tmp_path: Path,
+) -> None:
+    from censo_sampler.planning import plan_sample
+    from censo_sampler.release_v2 import SampleReleaseV2Error
+
+    frame = _build_synthetic_2022_frame(tmp_path / "frame")
+    coverage = _mark_partial_2022_frame(frame)
+    target = tmp_path / "diagnostic_target.csv"
+    target.write_text(
+        "department_id,target_year,target_person_mass\n06147,2024,3\n", encoding="utf-8"
+    )
+    plan = plan_sample(frame, target_population=target, target_year=2024,
+                       fraction=1.0)
+    assert plan["status"] == "blocked"
+    assert plan["scientific_use"]["reason"] == "partial_frame_requires_commissioning_only"
+    assert plan["frame_source_coverage"] == coverage
+    allowed = plan_sample(frame, target_population=target, target_year=2024,
+                          fraction=1.0, commissioning_only=True)
+    assert allowed["status"] == "ready"
+    assert allowed["scientific_use"]["classification"] == "commissioning_only"
+    assert allowed["scientific_use"]["publication_allowed"] is False
+    with pytest.raises(SampleReleaseV2Error, match="partial_frame_requires_commissioning_only"):
+        build_sample_release_v2(frame, tmp_path / "blocked",
+                                target_population=target, target_year=2024,
+                                fraction=1.0)
+    release = build_sample_release_v2(
+        frame, tmp_path / "samples", target_population=target,
+        target_year=2024, fraction=1.0, commissioning_only=True,
+    )
+    manifest = json.loads((release / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["scientific_use"]["classification"] == "commissioning_only"
+    assert manifest["scientific_use"]["publication_allowed"] is False
+    assert manifest["frame"]["source_coverage"] == coverage
+    assert manifest["qa"]["scientific_use"] == manifest["scientific_use"]
+    assert validate_sample_release_v2(release)["status"] == "valid"
+    assert {"EDAD", "ONLY_2022"} <= set(pq.read_schema(release / "persona.parquet").names)
+
+    # A downstream release checker must not accept a manifest that silently
+    # loses its mandatory diagnostic classification.
+    manifest.pop("scientific_use")
+    (release / "manifest.json").write_text(canonical_json(manifest), encoding="utf-8")
+    with pytest.raises(SampleReleaseV2Error, match="sample_v2_partial_frame_unmarked_commissioning"):
+        validate_sample_release_v2(release)
+
+
+def test_reject_inconsistent_partial_coverage_metadata(tmp_path: Path) -> None:
+    from censo_sampler.planning import SamplePlanningError, plan_sample
+
+    frame = _build_synthetic_2022_frame(tmp_path / "frame")
+    coverage = _mark_partial_2022_frame(frame)
+    manifest_path = frame / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["source_coverage"]["committed_radios"] = 2
+    manifest_path.write_text(canonical_json(manifest), encoding="utf-8")
+    target = tmp_path / "target.csv"
+    target.write_text("department_id,target_year,target_person_mass\n06147,2024,3\n",
+                      encoding="utf-8")
+    with pytest.raises(SamplePlanningError, match="inconsistent_partial_frame_coverage"):
+        plan_sample(frame, target_population=target, target_year=2024,
+                    fraction=1.0, commissioning_only=True)
+
+
+def test_commissioning_classification_survives_later_payload_materialization(
+    tmp_path: Path,
+) -> None:
+    from censo_sampler.materialize_selection import materialize_existing_selection_v2
+
+    frame = _build_synthetic_2022_frame(tmp_path / "frame")
+    coverage = _mark_partial_2022_frame(frame)
+    target = tmp_path / "target.csv"
+    target.write_text(
+        "department_id,target_year,target_person_mass\n06147,2024,3\n",
+        encoding="utf-8",
+    )
+    selection = build_sample_release_v2(
+        frame, tmp_path / "selection", target_population=target,
+        target_year=2024, fraction=1.0,
+        materialization="selection-only", commissioning_only=True,
+    )
+    full = materialize_existing_selection_v2(frame, selection, tmp_path / "materialized")
+    for release in (selection, full):
+        assert validate_sample_release_v2(release)["status"] == "valid"
+        manifest = json.loads((release / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["scientific_use"]["classification"] == "commissioning_only"
+        assert manifest["scientific_use"]["publication_allowed"] is False
+        assert manifest["frame"]["source_coverage"] == coverage
+    assert pq.read_table(full / "persona.parquet").num_rows == 3
