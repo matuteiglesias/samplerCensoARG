@@ -375,7 +375,7 @@ def test_reject_inconsistent_partial_coverage_metadata(tmp_path: Path) -> None:
     from censo_sampler.planning import SamplePlanningError, plan_sample
 
     frame = _build_synthetic_2022_frame(tmp_path / "frame")
-    coverage = _mark_partial_2022_frame(frame)
+    _mark_partial_2022_frame(frame)
     manifest_path = frame / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["source_coverage"]["committed_radios"] = 2
